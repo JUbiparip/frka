@@ -1,0 +1,2216 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0f">
+    <title>PM Dashboard + Troškovnik + Učenje</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/docx@8.2.2/build/index.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+        :root {
+            --g: #00ff88; --c: #00ffcc; --b: #0a0a0f; --s: #111118; --t: #1a1a28;
+            --br: rgba(255,255,255,0.07); --tx: #e8e8f0; --muted: #666680;
+            --red: #ff4466; --amber: #ffaa22; --blue: #4488ff; --purple: #8866ff;
+            --teal: #00d4aa; --safe: env(safe-area-inset-bottom,20px);
+            color-scheme: dark;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; background: var(--b); overscroll-behavior: none; }
+        body { font-family: 'DM Sans', sans-serif; color: var(--tx); overflow: hidden; height: 100dvh; }
+        .app { display: flex; flex-direction: column; height: 100dvh; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; padding-top: calc(14px + env(safe-area-inset-top, 0px)); background: var(--s); border-bottom: 1px solid var(--br); flex-shrink: 0; z-index: 100; }
+        .topbar-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; background: linear-gradient(90deg, var(--g), var(--c)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.5px; }
+        .topbar-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+        .topbar-actions { display: flex; gap: 8px; align-items: center; }
+        .icon-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--br); background: var(--t); display: flex; align-items: center; justify-content: center; color: var(--tx); font-size: 14px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+        .icon-btn:active { transform: scale(0.9); background: var(--br); }
+        .icon-btn.accent { background: linear-gradient(135deg, var(--g), var(--c)); color: #000; border: none; }
+        .icon-btn.danger { background: rgba(255,68,102,0.15); color: var(--red); border-color: rgba(255,68,102,0.3); }
+        .lang-toggle { display: flex; align-items: center; background: var(--t); border: 1px solid var(--br); border-radius: 10px; overflow: hidden; flex-shrink: 0; }
+        .lang-btn { padding: 6px 9px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--muted); transition: all 0.2s; border: none; background: transparent; font-family: 'DM Sans', sans-serif; }
+        .lang-btn.active { background: linear-gradient(135deg, var(--g), var(--c)); color: #000; }
+        .main { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        .page { display: none; padding-bottom: calc(72px + var(--safe)); }
+        .page.active { display: block; }
+        .kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 14px 14px 0; }
+        .kpi { background: var(--s); border: 1px solid var(--br); border-radius: 14px; padding: 12px 10px; text-align: center; transition: all 0.2s; }
+        .kpi:active { transform: scale(0.96); }
+        .kpi-val { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; background: linear-gradient(135deg, var(--g), var(--c)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .kpi-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+        .section-hdr { display: flex; align-items: center; justify-content: space-between; padding: 16px 14px 8px; gap: 8px; }
+        .section-hdr h2 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--tx); white-space: nowrap; }
+        .section-hdr .badge { font-size: 11px; background: var(--t); border: 1px solid var(--br); color: var(--muted); padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+        .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+        .tag-agro { background: rgba(39,174,96,0.15); color: #27ae60; border: 1px solid rgba(39,174,96,0.25); }
+        .tag-esp { background: rgba(68,136,255,0.15); color: #4488ff; border: 1px solid rgba(68,136,255,0.25); }
+        .tag-other { background: rgba(136,102,255,0.15); color: #8866ff; border: 1px solid rgba(136,102,255,0.25); }
+        .select-pill { padding: 7px 12px; border-radius: 20px; border: 1px solid var(--br); background: var(--s); color: var(--tx); font-size: 12px; font-family: 'DM Sans', sans-serif; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23666' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+        .habit-month-label { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; background: linear-gradient(90deg, var(--purple), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; padding: 0 14px; margin-bottom: 8px; }
+        .habit-scroll-outer { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 14px 8px; }
+        .habit-grid { display: grid; grid-template-columns: 150px repeat(var(--dc, 31), 32px); min-width: max-content; }
+        .hcell { height: 38px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-right: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .hcell.hdr { background: rgba(136,102,255,0.1); font-weight: 700; color: var(--muted); text-transform: uppercase; }
+        .hcell.name-col { justify-content: flex-start; padding: 0 10px; position: sticky; left: 0; background: var(--s); z-index: 5; border-right: 2px solid var(--br); }
+        .hcell.name-col.hdr { background: var(--t); z-index: 10; }
+        .hcell.day-cell { cursor: pointer; transition: background 0.15s; }
+        .hcell.day-cell:active { background: rgba(0,255,136,0.1); }
+        .hcell.done { background: linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,200,100,0.2)); }
+        .hcheck { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--br); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .hcheck.on { background: var(--g); border-color: var(--g); transform: scale(1.1); }
+        .hcheck.on i { font-size: 9px; color: #000; }
+        .habit-name-text { font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+        .habit-stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 14px 10px; }
+        .hstat { background: var(--s); border: 1px solid var(--br); border-radius: 12px; padding: 12px; text-align: center; }
+        .hstat-val { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; background: linear-gradient(135deg, var(--g), var(--c)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hstat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+        .gantt-card { margin: 0 14px 12px; background: var(--s); border: 1px solid var(--br); border-radius: 16px; overflow: hidden; }
+        .gantt-card-hdr { background: rgba(231,76,60,0.15); padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--br); }
+        .gantt-card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--tx); }
+        .gantt-card-dates { font-size: 10px; color: var(--muted); margin-top: 2px; }
+        .gantt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 10px; }
+        canvas.gc { display: block; }
+        .cal-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 14px 8px; gap: 8px; }
+        .cal-nav-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; flex: 1; text-align: center; }
+        .nav-btn { width: 32px; height: 32px; border-radius: 8px; background: var(--t); border: 1px solid var(--br); color: var(--tx); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+        .nav-btn:active { transform: scale(0.9); }
+        .cal-size-bar { display: flex; align-items: center; gap: 10px; padding: 0 14px 10px; }
+        .cal-size-bar label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+        .cal-size-bar input { flex: 1; }
+        .cal-grid { padding: 0 14px; }
+        .cal-day-names { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+        .cdn { text-align: center; font-size: 10px; color: var(--muted); font-weight: 600; padding: 4px 0; }
+        .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+        .cal-day { display: flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; position: relative; transition: all 0.15s; flex-direction: column; gap: 1px; }
+        .cal-day:active { transform: scale(0.88); }
+        .cal-day.today { background: rgba(0,255,136,0.15); color: var(--g); font-weight: 700; border: 1px solid rgba(0,255,136,0.3); }
+        .cal-day.has-ev::after { content: ''; width: 4px; height: 4px; background: var(--purple); border-radius: 50%; position: absolute; bottom: 3px; right: 3px; }
+        .cal-day.has-cal-task::before { content: ''; width: 5px; height: 5px; background: var(--g); border-radius: 50%; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); box-shadow: 0 0 4px var(--g); }
+        .cal-day.other { color: var(--muted); }
+        .dash-charts { padding: 0 14px; }
+        .chart-box { background: var(--s); border: 1px solid var(--br); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+        .chart-box-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+        .chart-box canvas { max-height: 220px; }
+        .dash-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 14px 12px; }
+        .dm { background: var(--s); border: 1px solid var(--br); border-radius: 12px; padding: 14px; }
+        .dm-val { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; background: linear-gradient(135deg, var(--g), var(--c)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .dm-lbl { font-size: 10px; color: var(--muted); margin-top: 3px; }
+        .ai-box { margin: 0 14px 12px; background: linear-gradient(135deg, rgba(136,102,255,0.08), rgba(68,136,255,0.08)); border: 1px solid rgba(136,102,255,0.2); border-radius: 14px; padding: 14px; }
+        .ai-box-title { font-size: 11px; color: var(--purple); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .ai-box-text { font-size: 12px; color: #ccc; white-space: pre-wrap; line-height: 1.6; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--s); border-top: 1px solid var(--br); padding-bottom: var(--safe); z-index: 200; overflow-x: auto; }
+        .nav-item { flex: 1; min-width: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 0 6px; cursor: pointer; transition: all 0.2s; color: var(--muted); font-size: 7.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; gap: 4px; }
+        .nav-item i { font-size: 15px; transition: all 0.2s; }
+        .nav-item.active { color: var(--g); }
+        .nav-item.active i { filter: drop-shadow(0 0 6px var(--g)); transform: translateY(-1px); }
+        .nav-item:active { transform: scale(0.9); }
+        .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 300; display: none; backdrop-filter: blur(4px); }
+        .sheet-overlay.open { display: flex; align-items: flex-end; }
+        .sheet { background: var(--s); border-radius: 22px 22px 0 0; width: 100%; max-height: 90dvh; overflow-y: auto; padding: 0 0 calc(20px + var(--safe)); transform: translateY(100%); transition: transform 0.35s cubic-bezier(.4,0,.2,1); border: 1px solid var(--br); border-bottom: none; }
+        .sheet-overlay.open .sheet { transform: translateY(0); }
+        .sheet-handle { width: 36px; height: 4px; background: var(--br); border-radius: 2px; margin: 12px auto 16px; }
+        .sheet-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; padding: 0 18px 16px; border-bottom: 1px solid var(--br); }
+        .sheet-body { padding: 18px; }
+        .fgroup { margin-bottom: 16px; }
+        .fgroup label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .finput { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--br); background: var(--t); color: var(--tx); font-size: 14px; font-family: 'DM Sans', sans-serif; transition: border-color 0.2s; outline: none; }
+        .finput:focus { border-color: var(--g); }
+        .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .factions { display: flex; gap: 10px; padding: 0 18px; }
+        .factions .fbtn { flex: 1; padding: 14px; border-radius: 14px; border: none; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .factions .fbtn:active { transform: scale(0.96); }
+        .factions .fbtn.cancel { background: var(--t); color: var(--muted); border: 1px solid var(--br); }
+        .factions .fbtn.submit { background: linear-gradient(135deg, var(--g), var(--c)); color: #000; }
+        .factions .fbtn.danger { background: linear-gradient(135deg, var(--red), #cc2244); color: #fff; }
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: var(--t); outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--g); cursor: pointer; }
+        .toast-container { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; width: 90%; }
+        .toast { background: var(--t); border: 1px solid var(--br); color: var(--tx); padding: 12px 16px; border-radius: 12px; font-size: 13px; display: flex; align-items: center; gap: 8px; animation: slideDown 0.3s cubic-bezier(.4,0,.2,1); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .tlog-item { padding: 10px 0; border-bottom: 1px solid var(--br); display: flex; justify-content: space-between; align-items: center; }
+        .tlog-item:last-child { border-bottom: none; }
+        .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+        .empty i { font-size: 40px; margin-bottom: 12px; display: block; opacity: 0.2; }
+        .empty p { font-size: 13px; }
+        .gtask-row { background: var(--t); border-radius: 10px; padding: 10px; margin-bottom: 8px; border: 1px solid var(--br); }
+        .rm-btn { background: rgba(255,68,102,0.15); border: none; color: var(--red); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; width: 100%; margin-top: 6px; font-family: 'DM Sans', sans-serif; }
+        .subproj-item { background: var(--t); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--br); display: flex; justify-content: space-between; align-items: center; }
+        .subproj-item-name { font-size: 12px; font-weight: 600; }
+        .subproj-item-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+        ::-webkit-scrollbar { width: 0; height: 0; }
+        .proj-tree-wrap { margin: 0 14px 12px; }
+        .tree-card { background: var(--s); border: 1px solid var(--br); border-radius: 16px; overflow: hidden; margin-bottom: 10px; }
+        .tree-proj-hdr { padding: 12px 14px; background: linear-gradient(135deg, rgba(0,255,136,0.07), rgba(0,255,204,0.04)); border-bottom: 1px solid var(--br); display: flex; align-items: center; gap: 10px; }
+        .tree-proj-icon { width: 28px; height: 28px; border-radius: 8px; background: rgba(0,255,136,0.15); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--g); flex-shrink: 0; }
+        .tree-proj-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; color: var(--tx); flex: 1; }
+        .tree-proj-pct { font-size: 12px; font-weight: 700; color: var(--g); margin-right: 4px; }
+        .tree-prog { height: 3px; background: var(--t); border-radius: 2px; margin: 0 14px 0; }
+        .tree-prog-fill { height: 100%; background: linear-gradient(90deg, var(--g), var(--c)); border-radius: 2px; }
+        .tree-body { padding: 10px 14px 12px; }
+
+        /* ─── NEW: Collapse/Expand styles ─── */
+        .tree-body.is-collapsed { display: none; }
+
+        /* Global controls bar */
+        .proj-controls-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 14px 10px;
+        }
+        .ctrl-pill {
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--br);
+            background: var(--t);
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .ctrl-pill:active { transform: scale(0.95); }
+        .ctrl-pill.hide { background: rgba(255,68,102,0.08); color: var(--red); border-color: rgba(255,68,102,0.2); }
+        .ctrl-pill.show { background: rgba(0,255,136,0.08); color: var(--g); border-color: rgba(0,255,136,0.2); }
+
+        /* Collapse toggle button inside each card header */
+        .collapse-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--br);
+            border-radius: 20px;
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 10px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.2s;
+            white-space: nowrap;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .collapse-btn:active { transform: scale(0.93); }
+        .collapse-btn.collapsed { color: var(--g); border-color: rgba(0,255,136,0.25); background: rgba(0,255,136,0.06); }
+
+        /* ─── Selective collapse panel ─── */
+        .proj-selector-panel {
+            margin: 0 14px 12px;
+            background: var(--s);
+            border: 1px solid var(--br);
+            border-radius: 14px;
+            padding: 12px 12px 10px;
+        }
+        .proj-selector-hdr {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .proj-selector-hdr-lbl {
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+        .proj-selector-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .proj-selector-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: var(--t);
+            border: 1px solid var(--br);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .proj-selector-row:active { transform: scale(0.98); }
+        .proj-selector-row.selected {
+            border-color: rgba(0,255,136,0.4);
+            background: rgba(0,255,136,0.06);
+        }
+        .pscb {
+            width: 18px; height: 18px; border-radius: 5px;
+            border: 2px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: all 0.2s;
+        }
+        .proj-selector-row.selected .pscb {
+            background: var(--g); border-color: var(--g);
+        }
+        .proj-selector-row.selected .pscb::after {
+            content: '✓'; font-size: 11px; font-weight: 800; color: #000; line-height: 1;
+        }
+        .proj-selector-name {
+            flex: 1; font-size: 12px; font-weight: 600; color: var(--tx);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .proj-selector-meta {
+            font-size: 9px; color: var(--muted); white-space: nowrap;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .proj-selector-meta .state-pill {
+            padding: 2px 6px; border-radius: 10px; font-size: 8px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .proj-selector-meta .state-pill.hidden { background: rgba(255,68,102,0.12); color: var(--red); }
+        .proj-selector-meta .state-pill.visible { background: rgba(0,255,136,0.1); color: var(--g); }
+        .proj-selector-actions {
+            display: flex; gap: 8px; padding-top: 10px;
+            border-top: 1px solid var(--br);
+        }
+        .proj-selector-actions .ctrl-pill {
+            flex: 1; justify-content: center;
+        }
+        /* ─── END NEW ─── */
+
+        .tree-level { position: relative; padding-left: 22px; }
+        .tree-level::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 14px; width: 2px; background: rgba(68,136,255,0.28); border-radius: 1px; }
+        .tree-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; position: relative; }
+        .tree-row::before { content: ''; position: absolute; left: -14px; top: 50%; width: 13px; height: 2px; background: rgba(68,136,255,0.28); }
+        .tree-act-level { position: relative; padding-left: 20px; margin-top: 4px; }
+        .tree-act-level::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 14px; width: 2px; background: rgba(136,102,255,0.2); border-radius: 1px; }
+        .tree-act-level .tree-row::before { left: -12px; width: 11px; background: rgba(136,102,255,0.2); }
+        .tree-box { flex: 1; background: rgba(0,87,143,0.35); border: 1px solid rgba(68,136,255,0.22); border-radius: 9px; padding: 7px 11px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; min-height: 34px; }
+        .tree-box.act { background: rgba(0,87,143,0.2); border-color: rgba(68,136,255,0.15); }
+        .tree-box:hover { border-color: var(--blue); }
+        .tree-cb { width: 17px; height: 17px; border-radius: 4px; border: 2px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.05); flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+        .tree-cb.on { background: var(--g); border-color: var(--g); }
+        .tree-cb.on::after { content: '✓'; font-size: 9px; font-weight: 800; color: #000; line-height: 1; }
+        .tree-box-name { font-size: 11px; font-weight: 600; color: var(--tx); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tree-box-meta { font-size: 9px; color: var(--muted); white-space: nowrap; }
+        .tree-show-btn { font-size: 10px; color: var(--muted); background: none; border: 1px dashed var(--br); border-radius: 20px; padding: 3px 10px; cursor: pointer; font-family: 'DM Sans', sans-serif; margin-top: 4px; }
+        .tree-show-btn:hover { border-color: var(--g); color: var(--g); }
+        .tree-actions { display: flex; gap: 5px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--br); flex-wrap: wrap; }
+        .tree-add-act { display: flex; gap: 6px; margin-top: 4px; padding-left: 0; }
+        .tree-add-act input { flex: 1; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--br); background: var(--t); color: var(--tx); font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none; }
+        .tree-add-act input:focus { border-color: var(--purple); }
+        .tree-add-act button { padding: 5px 10px; border-radius: 8px; border: none; background: rgba(136,102,255,0.2); color: var(--purple); font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+        .proj-btn { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--br); background: var(--t); color: var(--tx); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.2s; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+        .proj-btn:active { transform: scale(0.95); }
+        .proj-btn.green { background: rgba(0,255,136,0.1); color: var(--g); border-color: rgba(0,255,136,0.2); }
+        .proj-btn.red { background: rgba(255,68,102,0.1); color: var(--red); border-color: rgba(255,68,102,0.2); }
+        .proj-btn.blue { background: rgba(68,136,255,0.1); color: var(--blue); border-color: rgba(68,136,255,0.2); }
+        .proj-btn.amber { background: rgba(255,170,34,0.1); color: var(--amber); border-color: rgba(255,170,34,0.2); }
+        .napomena-card { margin: 0 14px 12px; background: var(--s); border: 1px solid var(--br); border-radius: 16px; padding: 14px; }
+        .napomena-card-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .napomena-card-subject { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--tx); }
+        .napomena-card-meta { font-size: 10px; color: var(--muted); margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .napomena-card-body { font-size: 12px; color: #aaa; line-height: 1.5; white-space: pre-wrap; max-height: 60px; overflow: hidden; }
+        .napomena-del-btn { background: rgba(255,68,102,0.12); border: none; color: var(--red); border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 11px; }
+        .add-btn-circle { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--g), var(--c)); border: none; color: #000; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; font-weight: 700; line-height: 1; }
+        .add-btn-circle:active { transform: scale(0.85); opacity: 0.8; }
+        .add-btn-circle.small { width: 26px; height: 26px; font-size: 14px; }
+        .cal-task-list { padding: 10px 14px; }
+        .cal-task-item { display: flex; align-items: center; justify-content: space-between; background: var(--t); border: 1px solid var(--br); border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 12px; gap: 8px; }
+        .cal-task-item .del-btn { background: rgba(255,68,102,0.12); border: none; color: var(--red); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 10px; }
+        .cost-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding: 0 14px 4px; }
+        .cost-tab { background: var(--t); border: 1px solid var(--br); border-radius: 32px; padding: 6px 16px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+        .cost-tab.active { background: rgba(0,255,136,0.12); color: var(--g); border-color: rgba(0,255,136,0.4); }
+        .cost-tab.custom-tab.active { background: rgba(255,170,34,0.12); color: var(--amber); border-color: rgba(255,170,34,0.4); }
+        .cost-tab i { margin-right: 6px; }
+        .tab-delete-icon { margin-left: 6px; font-size: 10px; opacity: 0.6; pointer-events: auto; cursor: pointer; }
+        .tab-delete-icon:hover { opacity: 1; }
+        .add-cost-card { margin: 0 14px 20px; background: linear-gradient(135deg, rgba(0,255,136,0.04), rgba(0,200,200,0.02)); border: 1px solid rgba(0,255,136,0.2); border-radius: 20px; padding: 16px 18px; }
+        .add-cost-card h3 { font-family: 'Syne', sans-serif; font-size: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, var(--g), var(--c)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .cost-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .cost-form-grid input, .cost-form-grid select { background: var(--t); border: 1px solid var(--br); border-radius: 12px; padding: 10px 12px; color: var(--tx); font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; transition: 0.2s; }
+        .cost-form-grid input:focus, .cost-form-grid select:focus { border-color: var(--g); }
+        .cost-submit-btn { background: linear-gradient(135deg, var(--g), var(--c)); border: none; border-radius: 40px; padding: 12px 20px; font-weight: 800; font-family: 'Syne', sans-serif; font-size: 14px; color: #000; cursor: pointer; width: 100%; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .cost-submit-btn:active { transform: scale(0.97); }
+        .cost-kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 14px 18px; }
+        .cost-kpi { background: var(--s); border: 1px solid var(--br); border-radius: 16px; padding: 14px 10px; text-align: center; }
+        .cost-kpi-val { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; background: linear-gradient(135deg, var(--g), var(--c)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .cost-kpi-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+        .cost-table-wrapper { margin: 0 14px 18px; overflow-x: auto; border-radius: 16px; border: 1px solid var(--br); background: var(--s); }
+        .cost-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 850px; }
+        .cost-table th { background: var(--t); color: var(--g); font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--br); }
+        .cost-table td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        .cost-table tr:hover td { background: rgba(0,255,136,0.03); }
+        .cost-inline-input { background: var(--t); border: 1px solid var(--br); border-radius: 8px; padding: 5px 7px; color: white; font-size: 10px; width: 78px; font-family: 'DM Sans', sans-serif; }
+        .cost-inline-date { width: 105px; }
+        .cost-src-badge { display: inline-block; background: rgba(0,255,136,0.12); color: var(--g); font-size: 8px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+        .cost-del-btn-icon { background: rgba(255,68,102,0.15); border: none; color: var(--red); border-radius: 20px; padding: 4px 9px; cursor: pointer; font-size: 11px; }
+        .cost-chart-card { margin: 0 14px 14px; background: var(--s); border: 1px solid var(--br); border-radius: 20px; padding: 18px; }
+        .cost-chart-title { display: flex; align-items: center; gap: 8px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 14px; color: var(--amber); }
+        .cost-chart-card canvas { max-height: 240px; width: 100%; }
+        .btn-new-cost { background: rgba(255,170,34,0.12); border: 1px solid rgba(255,170,34,0.4); color: var(--amber); padding: 8px 16px; border-radius: 30px; font-weight: 700; font-size: 12px; cursor: pointer; transition: 0.2s; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+        .btn-new-cost:hover { background: rgba(255,170,34,0.25); transform: scale(0.97); }
+        #page-ucenje { padding-bottom: calc(80px + var(--safe)); }
+        .ucenje-hero { margin: 12px 14px 0; background: linear-gradient(135deg, rgba(0,212,170,0.08), rgba(68,136,255,0.06)); border: 1px solid rgba(0,212,170,0.25); border-radius: 20px; padding: 18px; position: relative; overflow: hidden; }
+        .ucenje-hero::before { content: ''; position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(0,212,170,0.12), transparent 70%); border-radius: 50%; pointer-events: none; }
+        .ucenje-hero-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--teal), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; }
+        .ucenje-hero-sub { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
+        .upload-drop-zone { border: 2px dashed rgba(0,212,170,0.35); border-radius: 16px; padding: 28px 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: rgba(0,212,170,0.03); position: relative; }
+        .upload-drop-zone:hover, .upload-drop-zone.dragover { border-color: var(--teal); background: rgba(0,212,170,0.08); }
+        .upload-drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .upload-icon { font-size: 32px; color: var(--teal); margin-bottom: 10px; display: block; }
+        .upload-text { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--tx); }
+        .upload-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+        .ucenje-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; align-items: center; }
+        .utool-btn { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 30px; border: 1px solid var(--br); background: var(--t); color: var(--tx); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+        .utool-btn:active { transform: scale(0.94); }
+        .utool-btn.teal { background: rgba(0,212,170,0.12); color: var(--teal); border-color: rgba(0,212,170,0.35); }
+        .utool-btn.blue { background: rgba(68,136,255,0.12); color: var(--blue); border-color: rgba(68,136,255,0.35); }
+        .utool-btn.amber { background: rgba(255,170,34,0.12); color: var(--amber); border-color: rgba(255,170,34,0.35); }
+        .utool-btn.purple { background: rgba(136,102,255,0.12); color: var(--purple); border-color: rgba(136,102,255,0.35); }
+        .annotation-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; background: var(--s); border-top: 1px solid var(--br); border-bottom: 1px solid var(--br); align-items: center; }
+        .annot-mode-btn { display: flex; align-items: center; gap: 5px; padding: 7px 12px; border-radius: 20px; border: 1px solid var(--br); background: var(--t); color: var(--muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+        .annot-mode-btn.active { color: #000; border-color: transparent; }
+        .annot-mode-btn.yellow.active { background: #ffd600; }
+        .annot-mode-btn.green.active { background: #00e676; }
+        .annot-mode-btn.red.active { background: #ff5252; }
+        .annot-mode-btn.note.active { background: var(--blue); color: #fff; }
+        .annot-mode-btn.erase.active { background: var(--red); color: #fff; }
+        .pdf-viewer-wrap { padding: 10px 14px; overflow-y: auto; max-height: 55dvh; }
+        .pdf-page-container { position: relative; display: inline-block; margin-bottom: 12px; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.5); width: 100%; }
+        .pdf-page-container canvas { display: block; width: 100%; height: auto; }
+        .pdf-annotation-layer { position: absolute; inset: 0; pointer-events: all; }
+        .pdf-annotation-layer.drawing { cursor: crosshair; }
+        .pdf-annotation-layer.erasing { cursor: cell; }
+        .pdf-annotation-layer.noting { cursor: text; }
+        .pdf-page-nav { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px 14px; font-size: 12px; color: var(--muted); }
+        .pdf-page-nav button { background: var(--t); border: 1px solid var(--br); color: var(--tx); padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+        .pdf-file-info { display: flex; align-items: center; gap: 10px; background: rgba(0,212,170,0.06); border: 1px solid rgba(0,212,170,0.2); border-radius: 12px; padding: 10px 14px; margin: 0 14px 8px; font-size: 12px; }
+        .pdf-file-info i { color: var(--teal); font-size: 16px; }
+        .pdf-file-name { font-weight: 700; color: var(--tx); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pdf-file-meta { font-size: 10px; color: var(--muted); }
+        .audio-player-card { margin: 8px 14px; background: linear-gradient(135deg, rgba(136,102,255,0.08), rgba(68,136,255,0.05)); border: 1px solid rgba(136,102,255,0.25); border-radius: 16px; padding: 14px; }
+        .audio-player-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--purple); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .audio-player-card audio { width: 100%; border-radius: 8px; accent-color: var(--purple); }
+        .audio-status { font-size: 11px; color: var(--muted); margin-top: 8px; text-align: center; }
+        .progress-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9998; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+        .progress-overlay.hidden { display: none; }
+        .progress-spinner { width: 48px; height: 48px; border: 3px solid var(--br); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .progress-label { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--teal); }
+        .progress-bar-wrap { width: 200px; height: 4px; background: var(--t); border-radius: 2px; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--blue)); border-radius: 2px; transition: width 0.3s; width: 0%; }
+        .note-popup { position: absolute; background: var(--s); border: 1px solid var(--blue); border-radius: 10px; padding: 8px; z-index: 100; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.6); min-width: 180px; }
+        .note-popup textarea { width: 100%; background: var(--t); border: 1px solid var(--br); color: var(--tx); border-radius: 6px; padding: 6px; font-size: 11px; font-family: 'DM Sans', sans-serif; resize: none; outline: none; height: 60px; }
+        .note-popup-actions { display: flex; gap: 6px; margin-top: 6px; }
+        .note-popup-actions button { flex: 1; padding: 5px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+        .note-popup-actions .save-note { background: var(--blue); color: #fff; }
+        .note-popup-actions .cancel-note { background: var(--t); color: var(--muted); }
+        .ucenje-kpi-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; padding: 10px 14px 0; }
+        .ucenje-kpi { background: var(--s); border: 1px solid var(--br); border-radius: 14px; padding: 12px 10px; text-align: center; }
+        .ucenje-kpi-val { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--teal), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .ucenje-kpi-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+
+        /* ─────────────────── PROJEKT CHECKBOX COLLAPSE ─────────────────── */
+        .proj-inline-cb-wrap {
+            display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+        }
+        .proj-inline-cb-label {
+            font-size: 9px; color: var(--muted); white-space: nowrap; letter-spacing: 0.3px;
+        }
+        .proj-inline-cb {
+            width: 17px; height: 17px; border-radius: 4px;
+            border: 2px solid rgba(255,255,255,0.22);
+            background: rgba(255,255,255,0.05);
+            flex-shrink: 0; display: flex; align-items: center;
+            justify-content: center; cursor: pointer; transition: all 0.2s;
+        }
+        .proj-inline-cb.checked { background: var(--g); border-color: var(--g); }
+        .proj-inline-cb.checked::after { content: '✓'; font-size: 9px; font-weight: 800; color: #000; line-height: 1; }
+
+        /* ─────────────────── TRACKER PAGE ─────────────────── */
+        #page-tracker { padding-bottom: calc(80px + var(--safe)); }
+        .tracker-ctrl-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--s); border-bottom: 1px solid var(--br);
+            padding: 10px 14px; gap: 10px; flex-wrap: wrap;
+        }
+        .tracker-month-nav {
+            display: flex; align-items: center; gap: 10px;
+            background: var(--t); border: 1px solid var(--br);
+            padding: 5px 14px; border-radius: 40px;
+        }
+        .tracker-month-title {
+            font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800;
+            background: linear-gradient(90deg, var(--purple), var(--blue));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            min-width: 130px; text-align: center; letter-spacing: 0.5px;
+        }
+        .tracker-nav-btn {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--purple), var(--blue));
+            border: none; color: #fff; font-size: 12px; font-weight: 800;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; flex-shrink: 0;
+        }
+        .tracker-nav-btn:active { transform: scale(0.88); }
+        .tracker-today-badge {
+            font-size: 10px; background: rgba(255,170,34,0.15);
+            border: 1px solid rgba(255,170,34,0.35); color: var(--amber);
+            padding: 4px 12px; border-radius: 20px; font-weight: 600; white-space: nowrap;
+        }
+        .tracker-hint {
+            font-size: 9px; color: var(--muted); display: flex; align-items: center; gap: 4px;
+        }
+        .tracker-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        /* Veća tablica — povećane ćelije i font */
+        .tracker-main-table { border-collapse: collapse; font-size: 11px; min-width: 900px; }
+        .tracker-main-table th, .tracker-main-table td {
+            border: 0.5px solid rgba(255,255,255,0.09);
+            padding: 6px 5px; text-align: center; vertical-align: middle;
+        }
+        .tr-habit-col {
+            width: 200px; min-width: 200px; text-align: left !important;
+            padding-left: 12px !important; background: var(--s);
+            position: sticky; left: 0; z-index: 5; border-right: 1px solid var(--br);
+        }
+        .tr-habit-col.hdr-col { background: var(--t); z-index: 10; }
+
+        /* ─── Tjedni stilovi — usklađeni s glavnom paletom (purple/blue za navike) ─── */
+        .tr-week-hdr-odd  { background: rgba(136,102,255,0.22); }
+        .tr-week-hdr-even { background: rgba(68,136,255,0.22); }
+        .tr-day-odd       { background: rgba(136,102,255,0.06); }
+        .tr-day-even      { background: rgba(68,136,255,0.06); }
+        .tr-wknd-odd      { background: rgba(136,102,255,0.14) !important; }
+        .tr-wknd-even     { background: rgba(68,136,255,0.14) !important; }
+
+        /* Status row — koristi glavnu zelenu boju (uspjeh) */
+        .tr-status        { background: rgba(0,255,136,0.18) !important; color: var(--g) !important; }
+        .tr-dot-cell.done { color: var(--g); font-weight: 700; }
+
+        .tr-dot-cell { cursor: pointer; font-size: 15px; transition: all 0.1s; min-width: 24px; }
+        .tr-dot-cell:active { transform: scale(0.85); opacity: 0.7; }
+        .tr-dot-cell:hover { background: rgba(136,102,255,0.18) !important; }
+        .tr-today-col { outline: 2px solid var(--purple) !important; outline-offset: -2px; }
+        .tr-status-td { font-size: 9px; font-weight: 700; color: var(--tx); }
+        .tr-add-habit-row td { background: rgba(0,255,136,0.04); border-top: 1px dashed rgba(0,255,136,0.2); }
+        .tr-new-habit-input {
+            background: var(--t); border: 1px solid var(--br); border-radius: 8px;
+            padding: 4px 8px; color: var(--tx); font-size: 10px;
+            font-family: 'DM Sans', sans-serif; outline: none; width: 110px;
+            transition: 0.2s;
+        }
+        .tr-new-habit-input:focus { border-color: var(--g); }
+        .tr-add-btn {
+            background: rgba(0,255,136,0.15); border: 1px solid rgba(0,255,136,0.3);
+            color: var(--g); border-radius: 8px; padding: 4px 8px;
+            font-size: 10px; font-weight: 700; cursor: pointer;
+            font-family: 'DM Sans', sans-serif; transition: 0.2s;
+        }
+        .tr-add-btn:active { transform: scale(0.94); }
+        .tr-del-btn {
+            background: none; border: none; color: var(--red);
+            font-size: 10px; cursor: pointer; opacity: 0.5;
+            transition: 0.1s; padding: 0 3px;
+        }
+        .tr-del-btn:hover { opacity: 1; }
+        .tracker-barchart-wrap {
+            padding: 8px 14px 4px;
+            border-top: 1px solid var(--br); background: var(--s);
+        }
+        .tracker-barchart-inner { position: relative; width: 100%; height: 80px; }
+        .tracker-weekly-section {
+            display: flex; align-items: stretch; gap: 0;
+            margin: 10px 14px 14px;
+            background: var(--s); border: 1px solid var(--br);
+            border-radius: 16px; overflow: hidden;
+        }
+        .tracker-weekly-lbl {
+            width: 140px; min-width: 140px;
+            background: linear-gradient(135deg, rgba(136,102,255,0.12), rgba(68,136,255,0.07));
+            border-right: 1px solid var(--br);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800;
+            color: var(--purple); text-align: center; padding: 12px 8px; letter-spacing: 0.5px;
+        }
+        .tracker-week-card {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 8px 4px; border-left: 1px solid var(--br);
+        }
+        .tracker-donut-pct {
+            font-size: 9px; font-weight: 700; margin-top: 3px;
+            color: var(--muted); text-align: center;
+        }
+        .tracker-kpi-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; padding: 14px 14px 0; }
+        .tracker-kpi { background: var(--s); border: 1px solid var(--br); border-radius: 14px; padding: 12px 10px; text-align: center; }
+        .tracker-kpi-val { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; background: linear-gradient(135deg, var(--purple), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .tracker-kpi-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+
+        /* Tracker name bar */
+        .tracker-name-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; padding: 12px 14px 8px; flex-wrap: wrap;
+            background: var(--s); border-bottom: 1px solid var(--br);
+        }
+        .tracker-name-wrap {
+            display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+        }
+        .tracker-name-input {
+            flex: 1; min-width: 0;
+            background: var(--t); border: 1px solid var(--br); border-radius: 10px;
+            padding: 8px 12px; color: var(--tx); font-size: 13px;
+            font-family: 'DM Sans', sans-serif; outline: none; transition: 0.2s;
+        }
+        .tracker-name-input:focus { border-color: var(--g); }
+        .tracker-name-badge {
+            margin: 0 14px 6px;
+            background: linear-gradient(135deg, rgba(136,102,255,0.1), rgba(68,136,255,0.06));
+            border: 1px solid rgba(136,102,255,0.25); border-radius: 10px;
+            padding: 8px 14px; font-family: 'Syne', sans-serif; font-size: 12px;
+            font-weight: 700; color: var(--purple); display: flex; align-items: center; gap: 8px;
+        }
+        .tr-clear-btn {
+            background: rgba(255,68,102,0.12); border: 1px solid rgba(255,68,102,0.3);
+            color: var(--red); border-radius: 10px; padding: 8px 14px;
+            font-size: 12px; font-weight: 700; cursor: pointer;
+            font-family: 'DM Sans', sans-serif; transition: 0.2s;
+            display: flex; align-items: center; gap: 6px; white-space: nowrap;
+        }
+        .tr-clear-btn:active { transform: scale(0.95); background: rgba(255,68,102,0.22); }
+
+        /* Selector trackera (dropdown) */
+        .tracker-select-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 0 14px 10px; flex-wrap: wrap;
+        }
+        .tracker-select-lbl {
+            font-size: 10px; color: var(--muted); text-transform: uppercase;
+            letter-spacing: 0.5px; font-weight: 700; white-space: nowrap;
+        }
+        .tracker-select {
+            flex: 1; min-width: 140px;
+            background: var(--t); border: 1px solid rgba(136,102,255,0.3); border-radius: 10px;
+            padding: 8px 32px 8px 12px; color: var(--tx); font-size: 13px;
+            font-family: 'DM Sans', sans-serif; outline: none; transition: 0.2s;
+            appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238866ff' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center;
+        }
+        .tracker-select:focus { border-color: var(--purple); }
+        .tracker-select:disabled { opacity: 0.5; cursor: not-allowed; }
+        .tr-del-tracker-btn {
+            background: rgba(255,68,102,0.08); border: 1px solid rgba(255,68,102,0.25);
+            color: var(--red); border-radius: 10px; padding: 8px 10px;
+            font-size: 11px; font-weight: 700; cursor: pointer;
+            font-family: 'DM Sans', sans-serif; transition: 0.2s;
+            display: flex; align-items: center; gap: 5px; white-space: nowrap;
+        }
+        .tr-del-tracker-btn:active { transform: scale(0.95); }
+        .tracker-empty-state {
+            text-align: center; padding: 40px 20px; color: var(--muted);
+            border: 1px dashed rgba(136,102,255,0.25); border-radius: 14px;
+            margin: 12px 14px; background: rgba(136,102,255,0.03);
+        }
+        .tracker-empty-state i { font-size: 36px; color: var(--purple); opacity: 0.4; margin-bottom: 12px; display: block; }
+        .tracker-empty-state p { font-size: 13px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="topbar">
+        <div>
+            <div class="topbar-title"><i class="fas fa-project-diagram"></i> PM DASHBOARD</div>
+            <div class="topbar-sub" id="todayLabel"></div>
+        </div>
+        <div class="topbar-actions">
+            <div class="lang-toggle">
+                <button class="lang-btn active" id="langBS" onclick="setLang('bs')">BS</button>
+                <button class="lang-btn" id="langEN" onclick="setLang('en')">EN</button>
+            </div>
+            <div class="icon-btn" onclick="exportToExcel()" title="Excel"><i class="fas fa-file-excel"></i></div>
+            <div class="icon-btn danger" onclick="confirmClearAll()" title="Clear All"><i class="fas fa-trash-alt"></i></div>
+            <div class="icon-btn accent" onclick="openFAB()"><i class="fas fa-plus"></i></div>
+        </div>
+    </div>
+
+    <div class="main" id="mainScroll">
+
+        <!-- HOME -->
+        <div class="page active" id="page-home">
+            <div class="kpi-strip">
+                <div class="kpi"><div class="kpi-val" id="k-total">0</div><div class="kpi-lbl">Projekata</div></div>
+                <div class="kpi"><div class="kpi-val" id="k-active">0</div><div class="kpi-lbl">Aktivnih</div></div>
+                <div class="kpi"><div class="kpi-val" id="k-time">0h</div><div class="kpi-lbl">Sati</div></div>
+                <div class="kpi"><div class="kpi-val" id="k-tasks">0</div><div class="kpi-lbl">Zadataka</div></div>
+                <div class="kpi"><div class="kpi-val" id="k-gantt">0</div><div class="kpi-lbl">Gantti</div></div>
+                <div class="kpi"><div class="kpi-val" id="k-week">0%</div><div class="kpi-lbl">Tjedni</div></div>
+            </div>
+            <div class="section-hdr">
+                <h2>Projekti</h2>
+                <select class="select-pill" id="projFilter" onchange="renderProjects()">
+                    <option value="all">Svi</option>
+                    <option value="running">Aktivni</option>
+                    <option value="upcoming">Nadolazeći</option>
+                    <option value="completed">Završeni</option>
+                </select>
+            </div>
+
+            <!-- Checkbox collapse — kontrole uklonjene, checkbox na svakom projektu preuzima funkciju -->
+
+            <div id="projectsList"></div>
+        </div>
+
+        <!-- NAVIKE -->
+        <div class="page" id="page-habit">
+            <div class="section-hdr">
+                <h2><i class="fas fa-check-square" style="color:var(--purple);margin-right:6px;"></i>Navike</h2>
+                <button class="add-btn-circle" onclick="openHabitSheet()">+</button>
+            </div>
+            <div class="habit-controls-bar">
+                <select class="select-pill" id="hProjFilter" onchange="renderHabit()"><option value="all">Svi projekti</option></select>
+                <select class="select-pill" id="hMonth" onchange="onHabitMonthChange()">
+                    <option value="0">Januar</option><option value="1">Februar</option><option value="2">Mart</option>
+                    <option value="3">April</option><option value="4">Maj</option><option value="5">Juni</option>
+                    <option value="6">Juli</option><option value="7">Avgust</option><option value="8">Septembar</option>
+                    <option value="9">Oktobar</option><option value="10">Novembar</option><option value="11">Decembar</option>
+                </select>
+                <select class="select-pill" id="hYear" onchange="onHabitYearChange()">
+                    <option>2024</option><option>2025</option><option>2026</option><option>2027</option>
+                </select>
+            </div>
+            <div class="habit-month-label" id="habitMonthLabel"></div>
+            <div class="habit-scroll-outer"><div class="habit-grid" id="habitGrid"></div></div>
+            <div class="habit-stats-row">
+                <div class="hstat"><div class="hstat-val" id="hs-monthly">0%</div><div class="hstat-lbl">Progres</div></div>
+                <div class="hstat"><div class="hstat-val" id="hs-tasks">0</div><div class="hstat-lbl">Zadataka</div></div>
+                <div class="hstat"><div class="hstat-val" id="hs-streak">0</div><div class="hstat-lbl">Streak</div></div>
+                <div class="hstat"><div class="hstat-val" id="hs-consistency">0%</div><div class="hstat-lbl">Konzistentnost</div></div>
+            </div>
+        </div>
+
+        <!-- GANTT -->
+        <div class="page" id="page-gantt">
+            <div class="section-hdr">
+                <h2>Gantt</h2>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="badge" id="ganttBadge">0</span>
+                    <button class="add-btn-circle small" onclick="openGanttSheet()">+</button>
+                </div>
+            </div>
+            <div id="ganttList"></div>
+        </div>
+
+        <!-- KALENDAR -->
+        <div class="page" id="page-cal">
+            <div class="cal-nav">
+                <div class="nav-btn" onclick="prevCalMonth()"><i class="fas fa-chevron-left"></i></div>
+                <div class="cal-nav-title" id="calMonthLabel"></div>
+                <div class="nav-btn" onclick="nextCalMonth()"><i class="fas fa-chevron-right"></i></div>
+                <button class="add-btn-circle small" onclick="openCalendarTaskSheet()" style="margin-left:4px;">+</button>
+            </div>
+            <div class="cal-size-bar">
+                <label>Veličina ćelije:</label>
+                <input type="range" id="calSizeSlider" min="28" max="56" value="38" step="2" oninput="updateCalSize(this.value)">
+                <span id="calSizeLabel" style="font-size:11px;color:var(--muted);min-width:36px;text-align:right;">38px</span>
+            </div>
+            <div class="cal-grid" id="calGrid">
+                <div class="cal-day-names" id="calDayNames">
+                    <div class="cdn">Po</div><div class="cdn">Ut</div><div class="cdn">Sr</div>
+                    <div class="cdn">Če</div><div class="cdn">Pe</div><div class="cdn">Su</div><div class="cdn">Ne</div>
+                </div>
+                <div class="cal-days" id="calDays"></div>
+            </div>
+            <div class="cal-task-list" id="calTaskList"></div>
+            <div id="calEvents" style="padding:14px;"></div>
+        </div>
+
+        <!-- NAPOMENA -->
+        <div class="page" id="page-napomena">
+            <div class="section-hdr">
+                <h2><i class="fas fa-envelope" style="color:var(--blue);margin-right:6px;"></i>Napomena / Email</h2>
+                <span class="badge" id="schedBadge" style="background:rgba(255,170,34,0.12);color:var(--amber);border-color:rgba(255,170,34,0.3);display:none;">0 zakazano</span>
+            </div>
+            <div style="padding:0 14px 14px;">
+                <div class="fgroup"><label>Pošiljaoc</label><input class="finput" id="eFrom" type="email" placeholder="vas@email.com"></div>
+                <div class="fgroup"><label>Primatelj(i)</label><input class="finput" id="eTo" type="text" placeholder="primatelj@email.com"></div>
+                <div class="fgroup"><label>Naslov</label><input class="finput" id="eSubject" placeholder="Naslov poruke..."></div>
+                <div class="fgroup"><label>Poruka</label><textarea class="finput" id="eBody" rows="5" style="min-height:110px;resize:vertical;" placeholder="Unesite poruku..."></textarea></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button style="flex:1;min-width:130px;padding:12px;border-radius:12px;background:var(--t);border:1px solid var(--br);color:var(--muted);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;" onclick="saveNapomena()"><i class="fas fa-save"></i> Sačuvaj</button>
+                    <button style="flex:1;min-width:130px;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--blue),#2255cc);border:none;color:#fff;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;" onclick="sendEmailNow()"><i class="fas fa-paper-plane"></i> Pošalji</button>
+                </div>
+            </div>
+            <div class="section-hdr"><h2>Sačuvane napomene</h2><span class="badge" id="napomenaBadge">0</span></div>
+            <div id="napomenaList"></div>
+        </div>
+
+        <!-- TROŠKOVNIK -->
+        <div class="page" id="page-troskovnik">
+            <div class="section-hdr">
+                <h2><i class="fas fa-calculator" style="color:var(--amber);margin-right:6px;"></i> Troškovnik</h2>
+                <button class="btn-new-cost" id="createCustomCostBtn"><i class="fas fa-folder-plus"></i> Novi troškovnik</button>
+            </div>
+            <div class="cost-tabs" id="costTabsContainer"></div>
+            <div class="add-cost-card">
+                <h3><i class="fas fa-plus-circle"></i> Dodaj stavku — <span id="activeCostContextLabel" style="color:var(--amber);">—</span></h3>
+                <div class="cost-form-grid">
+                    <input type="text" id="costItemName" placeholder="Naziv *">
+                    <select id="costItemCategory">
+                        <option value="Agro">🌾 Agro</option><option value="IT">💻 IT</option>
+                        <option value="Oprema">🔧 Oprema</option><option value="Marketing">📢 Marketing</option>
+                        <option value="Ostalo">📌 Ostalo</option>
+                    </select>
+                    <input type="number" id="costItemQty" placeholder="Količina" step="any" value="1">
+                    <input type="number" id="costItemPrice" placeholder="Cijena (€)" step="0.01">
+                    <input type="number" id="costItemAmount" placeholder="Iznos (auto)" step="0.01" readonly style="background:rgba(255,170,34,0.08);color:var(--amber);">
+                    <input type="date" id="costItemDate">
+                    <input type="text" id="costItemNote" placeholder="Bilješka (opcional)">
+                </div>
+                <button class="cost-submit-btn" id="addCostItemBtn"><i class="fas fa-save"></i> Spremi stavku</button>
+            </div>
+            <div class="cost-kpi-strip">
+                <div class="cost-kpi"><div class="cost-kpi-val" id="totalCostKpi">0€</div><div class="cost-kpi-lbl">Ukupno</div></div>
+                <div class="cost-kpi"><div class="cost-kpi-val" id="totalItemsKpi">0</div><div class="cost-kpi-lbl">Stavki</div></div>
+                <div class="cost-kpi"><div class="cost-kpi-val" id="avgCostKpi">0€</div><div class="cost-kpi-lbl">Prosjek</div></div>
+            </div>
+            <div class="cost-table-wrapper">
+                <table class="cost-table">
+                    <thead><tr><th>Izvor</th><th>Naziv</th><th>Kategorija</th><th>Količina</th><th>Cijena (€)</th><th>Iznos (€)</th><th>Datum</th><th>Bilješka</th><th></th></tr></thead>
+                    <tbody id="costTableBody"></tbody>
+                </table>
+            </div>
+            <div class="cost-chart-card">
+                <div class="cost-chart-title"><i class="fas fa-chart-line"></i> Rast troškova po tjednima (€)</div>
+                <canvas id="weeklyCostTrendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ANALIZA -->
+        <div class="page" id="page-dash">
+            <div class="dash-metrics">
+                <div class="dm"><div class="dm-val" id="dTotal">0</div><div class="dm-lbl">Projekata ukupno</div></div>
+                <div class="dm"><div class="dm-val" id="dBudget">0€</div><div class="dm-lbl">Ukupni budžet</div></div>
+                <div class="dm"><div class="dm-val" id="dTeam">0</div><div class="dm-lbl">Ukupni tim</div></div>
+                <div class="dm"><div class="dm-val" id="dComplexity">0</div><div class="dm-lbl">Avg kompleksnost</div></div>
+            </div>
+            <div class="dash-charts">
+                <div class="chart-box"><div class="chart-box-title"><i class="fas fa-chart-pie" style="color:var(--g);"></i> Po kategorijama</div><canvas id="cDonut"></canvas></div>
+                <div class="chart-box"><div class="chart-box-title"><i class="fas fa-chart-bar" style="color:var(--blue);"></i> Napredak projekata</div><canvas id="cBar"></canvas></div>
+                <div class="chart-box"><div class="chart-box-title"><i class="fas fa-clock" style="color:var(--amber);"></i> Sati po projektu</div><canvas id="cTime"></canvas></div>
+            </div>
+            <div class="ai-box">
+                <div class="ai-box-title"><i class="fas fa-robot"></i> AI Analiza</div>
+                <div class="ai-box-text" id="aiText">Analiziram...</div>
+            </div>
+        </div>
+
+        <!-- UČENJE -->
+        <div class="page" id="page-ucenje">
+            <div class="ucenje-kpi-strip">
+                <div class="ucenje-kpi"><div class="ucenje-kpi-val" id="uk-pages">0</div><div class="ucenje-kpi-lbl">Stranica</div></div>
+                <div class="ucenje-kpi"><div class="ucenje-kpi-val" id="uk-annots">0</div><div class="ucenje-kpi-lbl">Napomena</div></div>
+                <div class="ucenje-kpi"><div class="ucenje-kpi-val" id="uk-words">0</div><div class="ucenje-kpi-lbl">Riječi</div></div>
+            </div>
+            <div class="ucenje-hero" id="ucenjeHero">
+                <div class="ucenje-hero-title">📚 Centar za učenje</div>
+                <div class="ucenje-hero-sub">Učitajte PDF, dodajte napomene i pretvorite u audio</div>
+                <div class="upload-drop-zone" id="pdfDropZone">
+                    <input type="file" id="pdfFileInput" accept=".pdf" onchange="handlePdfUpload(event)">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <div class="upload-text">Klikni ili prevuci PDF ovdje</div>
+                    <div class="upload-sub">Podržano: PDF dokumenti</div>
+                </div>
+            </div>
+            <div class="pdf-file-info" id="pdfFileInfo" style="display:none;">
+                <i class="fas fa-file-pdf"></i>
+                <div style="flex:1;">
+                    <div class="pdf-file-name" id="pdfFileName">—</div>
+                    <div class="pdf-file-meta" id="pdfFileMeta">—</div>
+                </div>
+                <button onclick="clearPdf()" style="background:rgba(255,68,102,0.12);border:none;color:var(--red);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:11px;"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="ucenje-toolbar" id="ucenjeToolbar" style="display:none;">
+                <button class="utool-btn teal" onclick="downloadAnnotatedPdf()"><i class="fas fa-highlighter"></i> PDF s napomenama</button>
+                <button class="utool-btn blue" onclick="downloadAsTxt()"><i class="fas fa-file-alt"></i> Preuzmi TXT</button>
+                <button class="utool-btn purple" onclick="downloadAsDocx()"><i class="fas fa-file-word"></i> Preuzmi DOCX</button>
+                <button class="utool-btn amber" onclick="generateAudio()"><i class="fas fa-volume-up"></i> Generiši audio</button>
+            </div>
+            <div class="annotation-toolbar" id="annotToolbar" style="display:none;">
+                <span style="font-size:11px;color:var(--muted);font-weight:600;margin-right:4px;">Alat:</span>
+                <button class="annot-mode-btn yellow" id="btnYellow" onclick="setAnnotMode('yellow')">🟡 Žuta</button>
+                <button class="annot-mode-btn green" id="btnGreen" onclick="setAnnotMode('green')">🟢 Zelena</button>
+                <button class="annot-mode-btn red" id="btnRed" onclick="setAnnotMode('red')">🔴 Crvena</button>
+                <button class="annot-mode-btn note" id="btnNote" onclick="setAnnotMode('note')"><i class="fas fa-sticky-note"></i> Bilješka</button>
+                <button class="annot-mode-btn erase" id="btnErase" onclick="setAnnotMode('erase')"><i class="fas fa-eraser"></i> Brisanje</button>
+                <button style="margin-left:auto;background:rgba(255,68,102,0.1);border:1px solid rgba(255,68,102,0.2);color:var(--red);border-radius:20px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;" onclick="clearAllAnnotations()"><i class="fas fa-trash"></i> Briši sve</button>
+            </div>
+            <div class="pdf-page-nav" id="pdfPageNav" style="display:none;">
+                <button onclick="prevPdfPage()"><i class="fas fa-chevron-left"></i></button>
+                <span id="pdfPageLabel">Str. 1 / 1</span>
+                <button onclick="nextPdfPage()"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="pdf-viewer-wrap" id="pdfViewerWrap" style="display:none;">
+                <div style="position:relative;display:inline-block;width:100%;" id="pdfCanvasWrap">
+                    <div class="pdf-page-container" id="pdfPageContainer">
+                        <canvas id="pdfCanvas"></canvas>
+                        <canvas id="annotCanvas" class="pdf-annotation-layer"></canvas>
+                        <div id="notePopup" class="note-popup">
+                            <textarea id="noteText" placeholder="Unesite bilješku..."></textarea>
+                            <div class="note-popup-actions">
+                                <button class="save-note" onclick="saveNoteAnnotation()">Spremi</button>
+                                <button class="cancel-note" onclick="cancelNote()">Otkaži</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="audio-player-card" id="audioPlayerCard" style="display:none;">
+                <div class="audio-player-title"><i class="fas fa-headphones"></i> Audio snimak dokumenta</div>
+                <audio id="audioPlayer" controls></audio>
+                <div class="audio-status" id="audioStatus">Preslušaj ili preuzmi audio snimak.</div>
+                <div style="margin-top:10px;display:flex;gap:8px;">
+                    <button class="utool-btn amber" onclick="downloadAudio()" style="flex:1;justify-content:center;"><i class="fas fa-download"></i> Preuzmi MP3</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRACKER -->
+        <div class="page" id="page-tracker">
+            <!-- Naziv Trackera + Clear All -->
+            <div class="tracker-name-bar">
+                <div class="tracker-name-wrap">
+                    <i class="fas fa-table" style="color:var(--purple);font-size:13px;"></i>
+                    <input type="text" id="trackerNameInp" class="tracker-name-input" placeholder="Unesite naziv novog trackera..." onkeydown="if(event.key==='Enter')trSaveName()">
+                    <button class="tr-add-btn" onclick="trSaveName()" title="Kreiraj novi tracker"><i class="fas fa-plus"></i> Kreiraj</button>
+                </div>
+                <button class="tr-clear-btn" onclick="trClearAll()" title="Obriši sve unose u aktivnom trackeru"><i class="fas fa-trash-alt"></i> Clear All</button>
+            </div>
+            <!-- Selector aktivnog trackera -->
+            <div class="tracker-select-bar">
+                <span class="tracker-select-lbl"><i class="fas fa-list" style="color:var(--purple);"></i> Tracker:</span>
+                <select id="trackerSelector" class="tracker-select" onchange="trSelectTracker()">
+                    <option value="">— Nema trackera —</option>
+                </select>
+                <button class="tr-del-tracker-btn" onclick="trDeleteCurrentTracker()" title="Obriši aktivni tracker u potpunosti"><i class="fas fa-times"></i> Obriši tracker</button>
+            </div>
+            <div id="trackerNameBadge" class="tracker-name-badge" style="display:none;"></div>
+            <div class="tracker-kpi-strip">
+                <div class="tracker-kpi"><div class="tracker-kpi-val" id="tr-kpi-done">0</div><div class="tracker-kpi-lbl">Označeno danas</div></div>
+                <div class="tracker-kpi"><div class="tracker-kpi-val" id="tr-kpi-rate">0%</div><div class="tracker-kpi-lbl">Mj. postotak</div></div>
+                <div class="tracker-kpi"><div class="tracker-kpi-val" id="tr-kpi-habits">0</div><div class="tracker-kpi-lbl">Stavki</div></div>
+            </div>
+            <div class="tracker-ctrl-bar">
+                <div class="tracker-month-nav">
+                    <button class="tracker-nav-btn" onclick="trackerChangeMonth(-1)">◀</button>
+                    <span class="tracker-month-title" id="trackerMonthTitle">—</span>
+                    <button class="tracker-nav-btn" onclick="trackerChangeMonth(1)">▶</button>
+                </div>
+                <span class="tracker-today-badge" id="trackerTodayBadge"></span>
+                <span class="tracker-hint"><i class="fas fa-hand-pointer" style="color:var(--purple);font-size:10px;"></i> Klikni ćeliju → označi</span>
+            </div>
+            <div class="tracker-scroll" id="trackerTableWrap"></div>
+            <div class="tracker-barchart-wrap">
+                <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><i class="fas fa-chart-bar" style="color:var(--purple);"></i> Dnevni postotak završenosti</div>
+                <div class="tracker-barchart-inner"><canvas id="trackerBarChart" role="img" aria-label="Dnevni postotak po danu"></canvas></div>
+            </div>
+            <div class="tracker-weekly-section">
+                <div class="tracker-weekly-lbl">⭐ TJEDNI<br>NAPREDAK</div>
+                <div id="trackerWeeklyCards" style="display:flex;flex:1;flex-wrap:wrap;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="navigate('home',this)"><i class="fas fa-home"></i><span>Projekti</span></div>
+        <div class="nav-item" onclick="navigate('habit',this)"><i class="fas fa-check-square"></i><span>Navike</span></div>
+        <div class="nav-item" onclick="navigate('gantt',this)"><i class="fas fa-stream"></i><span>Gantt</span></div>
+        <div class="nav-item" onclick="navigate('cal',this)"><i class="fas fa-calendar-alt"></i><span>Kalendar</span></div>
+        <div class="nav-item" onclick="navigate('napomena',this)"><i class="fas fa-envelope"></i><span>Napomena</span></div>
+        <div class="nav-item" onclick="navigate('troskovnik',this)"><i class="fas fa-calculator"></i><span>Troškovi</span></div>
+        <div class="nav-item" onclick="navigate('dash',this)"><i class="fas fa-chart-bar"></i><span>Analiza</span></div>
+        <div class="nav-item" onclick="navigate('ucenje',this)"><i class="fas fa-book-open"></i><span>Učenje</span></div>
+        <div class="nav-item" onclick="navigate('tracker',this)"><i class="fas fa-table"></i><span>Tracker</span></div>
+    </div>
+</div>
+
+<!-- SHEETS — unchanged from original -->
+<div class="sheet-overlay" id="fabOverlay" onclick="closeFAB()">
+    <div class="sheet" style="padding-bottom:20px;" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Dodaj novo</div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <button style="padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--g),var(--c));color:#000;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;" onclick="closeFAB();openProjectSheet()"><i class="fas fa-project-diagram"></i> Novi projekt</button>
+            <button style="padding:16px;border-radius:14px;border:1px solid rgba(136,102,255,0.3);background:rgba(136,102,255,0.1);color:var(--purple);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;" onclick="closeFAB();openHabitSheet()"><i class="fas fa-check-square"></i> Novi habit zadatak</button>
+            <button style="padding:16px;border-radius:14px;border:1px solid rgba(231,76,60,0.3);background:rgba(231,76,60,0.1);color:var(--red);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;" onclick="closeFAB();openGanttSheet()"><i class="fas fa-stream"></i> Novi Gantt dijagram</button>
+            <button style="padding:14px;border-radius:14px;background:var(--t);border:1px solid var(--br);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" onclick="closeFAB()">Odustani</button>
+        </div>
+    </div>
+</div>
+<div class="sheet-overlay" id="projectSheet">
+    <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title" id="projSheetTitle">Novi projekt</div>
+        <div class="sheet-body">
+            <input type="hidden" id="pEditId">
+            <div class="fgroup"><label>Naziv *</label><input class="finput" id="pName" placeholder="Naziv projekta"></div>
+            <div class="fgroup"><label>Kategorija</label><input class="finput" id="pCat" placeholder="AGRO, ESP..." list="catDL"><datalist id="catDL"><option value="AGRO"><option value="ESP"><option value="Posao"><option value="Osobni"><option value="Edukacija"></datalist></div>
+            <div class="frow">
+                <div class="fgroup"><label>Početak *</label><input class="finput" type="datetime-local" id="pStart"></div>
+                <div class="fgroup"><label>Kraj *</label><input class="finput" type="datetime-local" id="pEnd"></div>
+            </div>
+            <div class="fgroup"><label>Napredak: <span id="pProgVal">0%</span></label><input type="range" id="pProg" min="0" max="100" value="0" oninput="document.getElementById('pProgVal').textContent=this.value+'%'"></div>
+            <div class="fgroup"><label>Status</label><select class="finput" id="pStatus"><option value="running">Aktivan</option><option value="upcoming">Nadolazeći</option><option value="completed">Završen</option></select></div>
+            <div class="frow">
+                <div class="fgroup"><label>Budžet (€)</label><input class="finput" type="number" id="pBudget" placeholder="0" min="0"></div>
+                <div class="fgroup"><label>Veličina tima</label><input class="finput" type="number" id="pTeam" placeholder="1" min="1"></div>
+            </div>
+            <div class="fgroup"><label>Prioritet</label><select class="finput" id="pPriority"><option value="low">Nizak</option><option value="medium" selected>Srednji</option><option value="high">Visok</option></select></div>
+            <div class="fgroup"><label>Klijent</label><input class="finput" id="pClient" placeholder="Ime klijenta"></div>
+        </div>
+        <div class="factions">
+            <button class="fbtn cancel" onclick="closeProjectSheet()">Odustani</button>
+            <button class="fbtn submit" onclick="saveProject()">Spremi</button>
+        </div>
+    </div>
+</div>
+<div class="sheet-overlay" id="habitSheet">
+    <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Novi habit zadatak</div>
+        <div class="sheet-body">
+            <div class="fgroup"><label>Naziv zadatka *</label><input class="finput" id="hTaskName" placeholder="npr. 🌅 Morning Routine"></div>
+            <div class="fgroup"><label>Projekt (opcionalno)</label><select class="finput" id="hTaskProj"><option value="">Bez projekta</option></select></div>
+        </div>
+        <div class="factions">
+            <button class="fbtn cancel" onclick="closeHabitSheet()">Odustani</button>
+            <button class="fbtn submit" onclick="saveHabit()">Dodaj</button>
+        </div>
+    </div>
+</div>
+<div class="sheet-overlay" id="ganttSheet">
+    <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title" id="gSheetTitle">Novi Gantt dijagram</div>
+        <div class="sheet-body">
+            <input type="hidden" id="gEditId">
+            <div class="fgroup"><label>Naziv *</label><input class="finput" id="gName" placeholder="npr. Gantt_Projekt_2026"></div>
+            <div class="frow">
+                <div class="fgroup"><label>Početak *</label><input class="finput" type="date" id="gStart"></div>
+                <div class="fgroup"><label>Kraj *</label><input class="finput" type="date" id="gEnd"></div>
+            </div>
+            <div style="background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.2);border-radius:10px;padding:12px;margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-size:12px;font-weight:700;color:var(--red);">Stavke / Zadaci</span>
+                    <button type="button" onclick="addGTaskRow()" style="background:rgba(231,76,60,0.2);border:1px solid rgba(231,76,60,0.3);color:var(--red);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:11px;font-weight:600;font-family:'DM Sans',sans-serif;">+ Dodaj</button>
+                </div>
+                <div id="gTaskRows"></div>
+            </div>
+        </div>
+        <div class="factions">
+            <button class="fbtn cancel" onclick="closeGanttSheet()">Odustani</button>
+            <button class="fbtn submit" onclick="saveGantt()" style="background:linear-gradient(135deg,var(--red),#cc2244);color:#fff;">Spremi Gantt</button>
+        </div>
+    </div>
+</div>
+<div class="sheet-overlay" id="calendarTaskSheet">
+    <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Dodaj zadatak u kalendar</div>
+        <div class="sheet-body">
+            <div class="fgroup"><label>Naziv zadatka *</label><input class="finput" id="ctName" placeholder="npr. Sastanak sa timom"></div>
+            <div class="fgroup"><label>Datum *</label><input class="finput" type="date" id="ctDate"></div>
+        </div>
+        <div class="factions">
+            <button class="fbtn cancel" onclick="closeCalendarTaskSheet()">Odustani</button>
+            <button class="fbtn submit" onclick="saveCalendarTask()">Dodaj</button>
+        </div>
+    </div>
+</div>
+<div class="sheet-overlay" id="timeSheet">
+    <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Evidencija sati — <span id="tProjName" style="color:var(--blue);"></span></div>
+        <div class="sheet-body">
+            <div class="frow">
+                <div class="fgroup"><label>Sati</label><input class="finput" type="number" id="tHours" value="1" min="0.5" step="0.5"></div>
+                <div class="fgroup"><label>Datum</label><input class="finput" type="date" id="tDate"></div>
+            </div>
+            <div class="fgroup"><label>Opis</label><textarea class="finput" id="tDesc" rows="2" placeholder="Šta ste radili..."></textarea></div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Prethodna evidencija</div>
+            <div id="tHistory" style="background:var(--t);border-radius:10px;padding:10px;max-height:150px;overflow-y:auto;"></div>
+        </div>
+        <div class="factions">
+            <button class="fbtn cancel" onclick="closeTimeSheet()">Zatvori</button>
+            <button class="fbtn submit" onclick="saveTime()">Spremi sate</button>
+        </div>
+    </div>
+</div>
+<div class="sheet-overlay" id="subSheet">
+    <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Novi podprojekt</div>
+        <div class="sheet-body">
+            <input type="hidden" id="spParentId">
+            <div id="spExistingList" style="margin-bottom:16px;"></div>
+            <div class="fgroup"><label>Naziv *</label><input class="finput" id="spName" placeholder="Naziv podprojekta"></div>
+            <div class="frow">
+                <div class="fgroup"><label>Početak</label><input class="finput" type="datetime-local" id="spStart"></div>
+                <div class="fgroup"><label>Rok</label><input class="finput" type="datetime-local" id="spDeadline"></div>
+            </div>
+            <div class="fgroup"><label>Prioritet</label><select class="finput" id="spPriority"><option>Visok</option><option>Srednji</option><option>Nizak</option></select></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <input type="checkbox" id="spHabit" checked style="width:18px;height:18px;accent-color:var(--g);">
+                <label for="spHabit" style="font-size:13px;">Dodaj u Habit Tracker</label>
+            </div>
+        </div>
+        <div class="factions">
+            <button class="fbtn cancel" onclick="closeSubSheet()">Odustani</button>
+            <button class="fbtn submit" onclick="saveSubproject()">Dodaj</button>
+        </div>
+    </div>
+</div>
+
+<div class="progress-overlay hidden" id="progressOverlay">
+    <div class="progress-spinner"></div>
+    <div class="progress-label" id="progressLabel">Obrađujem...</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBarFill"></div></div>
+</div>
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// TRANSLATIONS
+// ─────────────────────────────────────────────
+const TRANSLATIONS = {
+    bs: { months:['Januar','Februar','Mart','April','Maj','Juni','Juli','Avgust','Septembar','Oktobar','Novembar','Decembar'], days_short:['Ne','Po','Ut','Sr','Če','Pe','Su'], proj_active:'Aktivan', proj_upcoming:'Nadolazeći', proj_done:'Završen', days_left:'d preostalo', days_late:'Kasni', days_today:'Danas istječe', confirm_clear:'Obrisati SVE podatke? Ova akcija se ne može poništiti!', toast_clear:'Svi podaci su izbrisani!' },
+    en: { months:['January','February','March','April','May','June','July','August','September','October','November','December'], days_short:['Su','Mo','Tu','We','Th','Fr','Sa'], proj_active:'Active', proj_upcoming:'Upcoming', proj_done:'Completed', days_left:'d left', days_late:'Late', days_today:'Due today', confirm_clear:'Delete ALL data? This cannot be undone!', toast_clear:'All data cleared!' }
+};
+let lang = localStorage.getItem('pm_lang') || 'bs';
+function T(k){return (TRANSLATIONS[lang]||TRANSLATIONS.bs)[k]||k;}
+function setLang(l){ lang=l; localStorage.setItem('pm_lang',l); document.getElementById('langBS').className='lang-btn'+(l==='bs'?' active':''); document.getElementById('langEN').className='lang-btn'+(l==='en'?' active':''); renderAll(); }
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+const TODAY = new Date();
+let projects=[],habits=[],ganttDiagrams=[],timeTracking={},calendarEvents={};
+let napomene=[],scheduledEmails=[],calendarTasks=[];
+let currentPage='home',calMonth=TODAY.getMonth(),calYear=TODAY.getFullYear();
+let habitMonth=TODAY.getMonth(),habitYear=TODAY.getFullYear();
+let editingProjId=null,currentTimeProjId=null,currentSubProjId=null,editingGanttId=null;
+let cDonut=null,cBar=null,cTime=null;
+const COLORS=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#00ff88','#ff4466','#8866ff'];
+let calCellSize=38;
+let costPerProject={},customCosts=[],activeCostContext=null,costChartInstance=null;
+let showHiddenMap={};
+
+// ─── NEW: collapse state — persisted per project id ───
+// true = collapsed (subprojects hidden), false/undefined = expanded
+let collapseState = {};
+
+function loadCollapseState(){
+    try { collapseState = JSON.parse(localStorage.getItem('pm_collapse')||'{}'); } catch(e){ collapseState={}; }
+}
+function saveCollapseState(){
+    localStorage.setItem('pm_collapse', JSON.stringify(collapseState));
+}
+// Toggle a single project's collapse
+function toggleCollapse(projId){
+    collapseState[projId] = !collapseState[projId];
+    saveCollapseState();
+    const body = document.getElementById('tbody_'+projId);
+    const cb   = document.getElementById('cbtn_'+projId);
+    const lbl  = cb ? cb.previousElementSibling : null;
+    if(body){ body.classList.toggle('is-collapsed', !!collapseState[projId]); }
+    if(cb){
+        if(collapseState[projId]){
+            cb.classList.remove('checked');
+            if(lbl) lbl.textContent='Prikaži';
+            cb.title='Podprojekti su skriveni — klikni da prikazeš';
+        } else {
+            cb.classList.add('checked');
+            if(lbl) lbl.textContent='Sakrij';
+            cb.title='Podprojekti su vidljivi — klikni da sakriješ';
+        }
+    }
+}
+// Collapse/expand all at once (helper, no longer bound to UI — kept for internal use)
+function setAllCollapsed(collapse){
+    projects.forEach(p => { collapseState[p.id] = collapse; });
+    saveCollapseState();
+    renderProjects(); // re-render to reflect global change
+}
+
+// ─── NEW: selective multi-select collapse ───
+// Set of project IDs the user has currently checked in the selector panel.
+let projSelection = new Set();
+
+function toggleProjSelector(){
+    const panel = document.getElementById('projSelectorPanel');
+    const lbl   = document.getElementById('selectorToggleLabel');
+    const btn   = document.getElementById('selectorToggleBtn');
+    if(!panel) return;
+    const isOpen = panel.style.display !== 'none';
+    if(isOpen){
+        panel.style.display = 'none';
+        lbl.textContent = 'Odaberi podprojekte za sakrivanje/prikaz';
+        btn.classList.remove('show');
+    } else {
+        renderProjSelector();
+        panel.style.display = 'block';
+        lbl.textContent = 'Zatvori odabir';
+        btn.classList.add('show');
+    }
+}
+
+function renderProjSelector(){
+    const list = document.getElementById('projSelectorList');
+    if(!list) return;
+    // Clean up: drop selected IDs for projects that no longer exist
+    const validIds = new Set(projects.map(p=>p.id));
+    projSelection.forEach(id => { if(!validIds.has(id)) projSelection.delete(id); });
+
+    if(!projects.length){
+        list.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:10px;text-align:center;">Nema projekata za prikazati.</div>';
+        updateSelectAllProjsLabel();
+        return;
+    }
+    list.innerHTML = '';
+    projects.forEach(p=>{
+        const isSelected   = projSelection.has(p.id);
+        const subCount     = (p.subprojects||[]).length;
+        const isCollapsed  = !!collapseState[p.id];
+        const stateCls     = isCollapsed ? 'hidden' : 'visible';
+        const stateLbl     = isCollapsed ? 'sakriven' : 'prikazan';
+        const row = document.createElement('div');
+        row.className = 'proj-selector-row' + (isSelected ? ' selected' : '');
+        row.onclick = () => toggleProjSelection(p.id);
+        row.innerHTML = `
+            <div class="pscb"></div>
+            <div class="proj-selector-name">${escapeHtml(p.name)}</div>
+            <div class="proj-selector-meta">
+                <span>${subCount} podpr.</span>
+                <span class="state-pill ${stateCls}">${stateLbl}</span>
+            </div>
+        `;
+        list.appendChild(row);
+    });
+    updateSelectAllProjsLabel();
+}
+
+function toggleProjSelection(projId){
+    if(projSelection.has(projId)) projSelection.delete(projId);
+    else projSelection.add(projId);
+    renderProjSelector();
+}
+
+function toggleSelectAllProjs(){
+    if(projSelection.size === projects.length && projects.length > 0){
+        projSelection.clear();
+    } else {
+        projects.forEach(p => projSelection.add(p.id));
+    }
+    renderProjSelector();
+}
+
+function updateSelectAllProjsLabel(){
+    const lbl = document.getElementById('selectAllProjsLbl');
+    if(!lbl) return;
+    const allSelected = projSelection.size === projects.length && projects.length > 0;
+    lbl.textContent = allSelected ? 'Poništi sve' : 'Sve';
+}
+
+function applyCollapseSelected(collapse){
+    if(projSelection.size === 0){
+        toast('Niste označili nijedan projekt!','warning');
+        return;
+    }
+    let count = 0;
+    projSelection.forEach(id => {
+        collapseState[id] = collapse;
+        count++;
+    });
+    saveCollapseState();
+    renderProjects();
+    // Re-render selector to reflect updated state badges, panel stays open
+    renderProjSelector();
+    toast(`${count} ${count===1?'projekt':'projekata'} ${collapse?'sakriveno':'prikazano'}.`, 'success');
+}
+// ─── END NEW ───
+// ─── END NEW ───
+
+// ─────────────────────────────────────────────
+// PDF / UČENJE STATE
+// ─────────────────────────────────────────────
+let pdfDoc=null, pdfCurrentPage=1, pdfTotalPages=0, pdfFileName='', pdfExtractedText='';
+let pdfAnnotations={}, annotMode=null, isDrawing=false, drawStart={x:0,y:0};
+let currentNotePos={x:0,y:0}, audioBlob=null, pdfArrayBuffer=null, pdfScale=1.5;
+if(typeof pdfjsLib!=='undefined') pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ─────────────────────────────────────────────
+// ⚠️ NAPOMENA: Ovdje unesite URL vašeg Google Apps Script Web App-a
+// Nađite ga u Google Apps Script: Objavi → Upravljaj postavljanjima → Web app URL
+// Format: https://script.google.com/macros/s/VAŠA_DEPLOYMENT_ID/exec
+// ─────────────────────────────────────────────
+const API_URL = 'https://script.google.com/macros/s/AKfycbzx43AGaEQ3gLfUdpz9GsOxpsqO_jTjnEV5f9t71wUwUvT8tkLbJdOTovPKZi-D3bg/exec';
+
+// ─────────────────────────────────────────────
+// GOOGLE SHEETS API HELPER
+// ─────────────────────────────────────────────
+async function gsPost(payload) {
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' }, // ⚠️ Mora biti text/plain zbog CORS-a u Apps Script
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success && !data.data) console.error('GS greška:', data);
+        return data;
+    } catch (e) {
+        console.error('Fetch greška:', e);
+        return null;
+    }
+}
+
+// ─────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async ()=>{
+    document.getElementById('todayLabel').textContent=TODAY.toLocaleDateString('hr-HR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    document.getElementById('hMonth').value=habitMonth;
+    const ySel=document.getElementById('hYear');
+    let found=false;
+    for(let o of ySel.options) if(parseInt(o.value)===habitYear){o.selected=true;found=true;break;}
+    if(!found){const opt=document.createElement('option');opt.value=habitYear;opt.textContent=habitYear;opt.selected=true;ySel.insertBefore(opt,ySel.firstChild);}
+    loadCollapseState();
+    showProgress('Učitavam podatke s Google Sheets...', 20);
+    await loadData();
+    hideProgress();
+    renderAll();
+    document.getElementById('costItemDate').value=TODAY.toISOString().split('T')[0];
+    document.getElementById('addCostItemBtn').addEventListener('click',addCostItem);
+    document.getElementById('createCustomCostBtn').addEventListener('click',createCustomCost);
+    document.getElementById('costItemQty').addEventListener('input',previewCostAmount);
+    document.getElementById('costItemPrice').addEventListener('input',previewCostAmount);
+    const dz=document.getElementById('pdfDropZone');
+    dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+    dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files[0])loadPdfFile(e.dataTransfer.files[0]);});
+});
+
+function renderAll(){ renderProjects(); renderHabit(); renderGantt(); renderCalendar(); updateKPIs(); updateHabitProjFilter(); updateHabitProjSheetFilter(); if(currentPage==='dash') renderDashCharts(); if(currentPage==='napomena') renderNapomenaList(); if(currentPage==='cal') renderCalTaskList(); if(currentPage==='troskovnik') renderCostAll(); }
+
+// ─────────────────────────────────────────────
+// DEBOUNCE za auto-save (izbjegava previše poziva na GS)
+// ─────────────────────────────────────────────
+let saveTimer = null;
+function debouncedSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { save(); }, 1200);
+}
+
+// ─────────────────────────────────────────────
+// SAVE — šalje sve podatke na Google Sheets
+// ─────────────────────────────────────────────
+async function save(){
+    // Paralelno šaljemo sve podatke na GS
+    const calls = [
+        gsPost({ action: 'saveProject', project: null }), // placeholder — projekte čuvamo pojedinačno
+    ];
+
+    // ⚠️ Projekti se čuvaju jedan po jedan (saveProject akcija)
+    // ali za batch refresh koristimo bulk pristup — šaljemo sve odjednom kroz petlju
+    const projSaves = projects.map(p => gsPost({ action: 'saveProject', project: p }));
+
+    await Promise.all([
+        ...projSaves,
+        gsPost({ action: 'saveHabits', habits: habits }),
+        gsPost({ action: 'saveGantt', gantt: ganttDiagrams }),
+        gsPost({ action: 'saveCalendarTasks', calendarTasks: calendarTasks }),
+        gsPost({ action: 'saveNapomene', napomene: napomene }),
+        gsPost({ action: 'saveCostPerProject', costPerProject: costPerProject }),
+        gsPost({ action: 'saveCustomCosts', customCosts: customCosts }),
+        saveTrackerToGS()
+    ]);
+}
+
+// Čuva tracker podatke na GS (meta + habits + data)
+async function saveTrackerToGS(){
+    const list = trLoadList();
+    const habitsMap = {};
+    const dataMap = {};
+
+    list.forEach(t => {
+        habitsMap[t.id] = trLoadHabits(t.id);
+        // Prikuplja sve monthly data za ovaj tracker
+        for(let i = 0; i < localStorage.length; i++){
+            const k = localStorage.key(i);
+            if(k && k.startsWith(TR_DATA_PREFIX + t.id + '_')){
+                const parts = k.replace(TR_DATA_PREFIX,'').split('_');
+                const tid = parts[0], year = parts[1], month = parts[2];
+                const gsKey = tid+'_'+year+'_'+month;
+                try { dataMap[gsKey] = JSON.parse(localStorage.getItem(k)||'{}'); } catch(e){}
+            }
+        }
+    });
+
+    await Promise.all([
+        gsPost({ action: 'saveTrackerMeta', trackerMeta: list }),
+        gsPost({ action: 'saveTrackerHabits', trackerHabits: habitsMap }),
+        gsPost({ action: 'saveTrackerData', trackerData: dataMap })
+    ]);
+}
+
+// ─────────────────────────────────────────────
+// LOAD DATA — učitava podatke s Google Sheets
+// ─────────────────────────────────────────────
+async function loadData(){
+    try {
+        showProgress('Učitavam projekte...', 15);
+        const [rProj, rHabits, rGantt, rCalTasks, rNap, rCostPP, rCustomC, rTrackerMeta, rTrackerHabits, rTrackerData] = await Promise.all([
+            gsPost({ action: 'getAllProjects' }),
+            gsPost({ action: 'getAllHabits' }),
+            gsPost({ action: 'getAllGantt' }),
+            gsPost({ action: 'getAllCalendarTasks' }),
+            gsPost({ action: 'getAllNapomene' }),
+            gsPost({ action: 'getAllCostPerProject' }),
+            gsPost({ action: 'getAllCustomCosts' }),
+            gsPost({ action: 'getTrackerMeta' }),
+            gsPost({ action: 'getTrackerHabits' }),
+            gsPost({ action: 'getTrackerData' })
+        ]);
+
+        showProgress('Obrađujem podatke...', 70);
+
+        if(rProj && rProj.data) projects = rProj.data;
+        if(rHabits && rHabits.data) habits = rHabits.data;
+        if(rGantt && rGantt.data) ganttDiagrams = rGantt.data;
+        if(rCalTasks && rCalTasks.data) calendarTasks = rCalTasks.data;
+        if(rNap && rNap.data) napomene = rNap.data;
+        if(rCostPP && rCostPP.data) costPerProject = rCostPP.data;
+        if(rCustomC && rCustomC.data) customCosts = rCustomC.data;
+
+        // Tracker podatke čuvamo u localStorage (brzi pristup pri toggleu)
+        if(rTrackerMeta && rTrackerMeta.data) {
+            trSaveList(rTrackerMeta.data);
+            if(rTrackerMeta.data.length && !trGetActiveId()) trSetActiveId(rTrackerMeta.data[0].id);
+        }
+        if(rTrackerHabits && rTrackerHabits.data) {
+            Object.entries(rTrackerHabits.data).forEach(([tid, h]) => {
+                localStorage.setItem(TR_HABITS_PREFIX + tid, JSON.stringify(h));
+            });
+        }
+        if(rTrackerData && rTrackerData.data) {
+            Object.entries(rTrackerData.data).forEach(([gsKey, dayObj]) => {
+                // gsKey format: "trackerId_year_month"
+                localStorage.setItem(TR_DATA_PREFIX + gsKey, JSON.stringify(dayObj));
+            });
+        }
+
+    } catch(e) {
+        console.error('Greška pri učitavanju:', e);
+        toast('Greška pri učitavanju s Google Sheets. Provjerite internet vezu.', 'error');
+    }
+
+    // Normalizacija podataka
+    projects.forEach(p=>{
+        if(!p.phases)p.phases=[];if(!p.subprojects)p.subprojects=[];
+        p.subprojects.forEach(s=>{if(s.visible===undefined)s.visible=true;if(!s.activities)s.activities=[];s.activities.forEach(a=>{if(a.visible===undefined)a.visible=true;});});
+        if(p.visible===undefined)p.visible=true;
+    });
+    if(!Object.keys(costPerProject).length&&projects.length){projects.forEach(p=>{if(!costPerProject[p.id])costPerProject[p.id]=[];});}
+    if(!activeCostContext&&projects.length)activeCostContext={type:'project',id:projects[0].id};
+    else if(!activeCostContext&&customCosts.length)activeCostContext={type:'custom',id:customCosts[0].id};
+    normalizeCostDates();
+    updateCalEvents();
+}
+
+function normalizeCostDates(){ const fix=(items)=>{if(!items)return;items.forEach(i=>{if(!i.date)i.date=TODAY.toISOString().split('T')[0];});}; Object.values(costPerProject).forEach(fix); customCosts.forEach(ct=>fix(ct.items)); }
+
+async function confirmClearAll(){
+    if(!confirm(T('confirm_clear')))return;
+    projects=[];habits=[];ganttDiagrams=[];timeTracking={};calendarEvents={};napomene=[];scheduledEmails=[];calendarTasks=[];costPerProject={};customCosts=[];activeCostContext=null;collapseState={};
+    // Briše tracker iz localStorage
+    const toRemove=[];
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&(k.startsWith('tr_')||k.startsWith('pm_')))toRemove.push(k);}
+    toRemove.forEach(k=>localStorage.removeItem(k));
+    // Briše sve i s Google Sheets (šalje prazne nizove)
+    showProgress('Brišem podatke...', 30);
+    await Promise.all([
+        gsPost({ action: 'saveHabits', habits: [] }),
+        gsPost({ action: 'saveGantt', gantt: [] }),
+        gsPost({ action: 'saveCalendarTasks', calendarTasks: [] }),
+        gsPost({ action: 'saveNapomene', napomene: [] }),
+        gsPost({ action: 'saveCostPerProject', costPerProject: {} }),
+        gsPost({ action: 'saveCustomCosts', customCosts: [] }),
+        gsPost({ action: 'saveTrackerMeta', trackerMeta: [] }),
+        gsPost({ action: 'saveTrackerHabits', trackerHabits: {} }),
+        gsPost({ action: 'saveTrackerData', trackerData: {} })
+    ]);
+    hideProgress();
+    renderAll(); toast(T('toast_clear'),'info');
+}
+
+function initSamples(){
+    // Prazan start — korisnik unosi svoje projekte sam
+    projects=[];
+    costPerProject={};
+    activeCostContext=null;
+    // save(); — initSamples ne treba čuvati na GS
+}
+
+function initHabits(){
+    // Prazan start — korisnik dodaje vlastite navike
+    habits=[];
+    // save(); — initHabits ne treba čuvati na GS
+}
+
+// ─────────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────────
+function updateCalEvents(){ calendarEvents={}; projects.forEach(p=>{ addCalEv(p.start.split('T')[0],`🚀 Početak: ${p.name}`,p.name); addCalEv(p.end.split('T')[0],`🏁 Rok: ${p.name}`,p.name); if(p.subprojects)p.subprojects.forEach(s=>{if(s.start)addCalEv(s.start.split('T')[0],`📌 ${s.name}`,p.name);if(s.deadline)addCalEv(s.deadline.split('T')[0],`⏰ Rok: ${s.name}`,p.name);}); }); }
+function addCalEv(date,name,proj){if(!calendarEvents[date])calendarEvents[date]=[];calendarEvents[date].push({name,proj});}
+function navigate(page,el){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+page).classList.add('active'); document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active')); el.classList.add('active'); currentPage=page; document.getElementById('mainScroll').scrollTop=0; if(page==='dash')setTimeout(renderDashCharts,100); if(page==='napomena')renderNapomenaList(); if(page==='cal')renderCalTaskList(); if(page==='troskovnik'){if(!activeCostContext&&projects.length)activeCostContext={type:'project',id:projects[0].id};else if(!activeCostContext&&customCosts.length)activeCostContext={type:'custom',id:customCosts[0].id};renderCostAll();} if(page==='ucenje'&&pdfDoc)renderPdfPage(pdfCurrentPage); if(page==='tracker'){setTimeout(renderTracker,50); setTimeout(trInitNameUI,60);} }
+
+// ─────────────────────────────────────────────
+// PROJECTS  (modified renderProjects only)
+// ─────────────────────────────────────────────
+function renderProjects(){
+    const el=document.getElementById('projectsList');
+    let list=[...projects];
+    const fv=document.getElementById('projFilter').value;
+    if(fv!=='all')list=list.filter(p=>p.status===fv);
+    const visible=list.filter(p=>p.visible!==false);
+    const hidden=list.filter(p=>p.visible===false);
+    if(!list.length){el.innerHTML=`<div class="empty"><i class="fas fa-folder-open"></i><p>Nema projekata.</p></div>`;return;}
+    if(!visible.length&&!showHiddenMap['__all']){el.innerHTML=`<div style="padding:20px 14px;text-align:center;color:var(--muted);font-size:12px;">Svi projekti su sakriveni. <button class="tree-show-btn" onclick="showHiddenMap['__all']=true;renderProjects()">Prikaži sve</button></div>`;return;}
+    const activePList=showHiddenMap['__all']?list:visible;
+    el.innerHTML='';
+
+    activePList.forEach(p=>{
+        const totalT=(p.timeSpent||[]).reduce((s,e)=>s+e.hours,0);
+        const catCls=getCatClass(p.category);
+        const statusTxt=p.status==='running'?T('proj_active'):p.status==='upcoming'?T('proj_upcoming'):T('proj_done');
+        const daysLeft=Math.ceil((new Date(p.end)-TODAY)/86400000);
+        const daysLabel=p.status==='completed'?T('proj_done'):daysLeft<0?`${T('days_late')} ${Math.abs(daysLeft)}d`:daysLeft===0?T('days_today'):`${daysLeft} ${T('days_left')}`;
+        const daysColor=p.status==='completed'?'var(--muted)':daysLeft<0?'var(--red)':daysLeft<14?'var(--amber)':'var(--muted)';
+        const phaseCount=(p.phases||[]).length;
+        const isHidden=p.visible===false;
+        const isCollapsed=!!collapseState[p.id];
+        const subs=(p.subprojects||[]);
+        const subCount=subs.length;
+
+        const card=document.createElement('div');
+        card.className='tree-card';
+        card.style.cssText=`margin:0 14px 10px;opacity:${isHidden?'0.45':'1'};`;
+
+        // Progress bar
+        const progBar=document.createElement('div');
+        progBar.className='tree-prog';
+        progBar.innerHTML=`<div class="tree-prog-fill" style="width:${p.progress}%"></div>`;
+        card.appendChild(progBar);
+
+        // Header
+        const hdr=document.createElement('div');
+        hdr.className='tree-proj-hdr';
+        hdr.innerHTML=`
+          <div class="tree-proj-icon"><i class="fas fa-project-diagram"></i></div>
+          <div class="tree-proj-title">
+            ${p.name}
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">
+              <span class="tag ${catCls}" style="font-size:9px;padding:2px 6px;">${p.category}</span>
+              <span class="tag" style="background:rgba(255,255,255,0.05);color:var(--muted);font-size:9px;padding:2px 6px;">${statusTxt}</span>
+              ${p.priority==='high'?'<span class="tag" style="background:rgba(255,68,102,0.1);color:var(--red);font-size:9px;padding:2px 6px;">⚡ Visok</span>':''}
+              ${phaseCount>0?`<span class="tag" style="background:rgba(255,170,34,0.1);color:var(--amber);font-size:9px;padding:2px 6px;"><i class="fas fa-layer-group"></i> ${phaseCount}</span>`:''}
+              ${subCount>0?`<span class="tag" style="background:rgba(68,136,255,0.1);color:var(--blue);font-size:9px;padding:2px 6px;"><i class="fas fa-sitemap"></i> ${subCount} podprojekta</span>`:''}
+            </div>
+            <div style="font-size:9px;color:${daysColor};margin-top:3px;">${daysLabel} · ${totalT}h</div>
+          </div>
+          <div class="tree-proj-pct">${p.progress}%</div>
+          ${subCount>0 ? `
+            <div class="proj-inline-cb-wrap" title="${isCollapsed?'Podprojekti su skriveni — klikni da prikazeš':'Podprojekti su vidljivi — klikni da sakriješ'}">
+              <span class="proj-inline-cb-label">${isCollapsed?'Prikaži':'Sakrij'}</span>
+              <div id="cbtn_${p.id}" class="proj-inline-cb${isCollapsed?'':' checked'}" onclick="toggleCollapse(${p.id})"></div>
+            </div>` : ''}
+        `;
+        card.appendChild(hdr);
+
+        // Body (subprojects + actions) — collapsible
+        const body=document.createElement('div');
+        body.className='tree-body'+(isCollapsed?' is-collapsed':'');
+        body.id='tbody_'+p.id;
+
+        const visibleSubs=subs.filter(s=>s.visible!==false);
+        const showHiddenSubs=showHiddenMap['s_'+p.id];
+        const activeSubs=showHiddenSubs?subs:visibleSubs;
+
+        if(activeSubs.length>0){
+            const level=document.createElement('div');level.className='tree-level';
+            activeSubs.forEach(s=>{
+                const sRow=document.createElement('div');sRow.className='tree-row';
+                const sBox=document.createElement('div');sBox.className='tree-box';
+                const sCb=document.createElement('div');sCb.className='tree-cb'+(s.visible!==false?' on':'');
+                sCb.onclick=e=>{e.stopPropagation();toggleTreeVisible('sub',p.id,s.id);};
+                const sName=document.createElement('span');sName.className='tree-box-name';sName.textContent=s.name;
+                const sMeta=document.createElement('span');sMeta.className='tree-box-meta';sMeta.textContent=s.priority||'';
+                sBox.appendChild(sCb);sBox.appendChild(sName);sBox.appendChild(sMeta);sRow.appendChild(sBox);level.appendChild(sRow);
+                const acts=(s.activities||[]);
+                const visibleActs=acts.filter(a=>a.visible!==false);
+                const showHiddenActs=showHiddenMap['a_'+s.id];
+                const activeActs=showHiddenActs?acts:visibleActs;
+                if(activeActs.length>0){
+                    const actLevel=document.createElement('div');actLevel.className='tree-act-level';
+                    activeActs.forEach(act=>{
+                        const aRow=document.createElement('div');aRow.className='tree-row';
+                        const aBox=document.createElement('div');aBox.className='tree-box act';
+                        const aCb=document.createElement('div');aCb.className='tree-cb'+(act.visible!==false?' on':'');
+                        aCb.onclick=e=>{e.stopPropagation();toggleTreeVisible('act',p.id,s.id,act.id);};
+                        const aName=document.createElement('span');aName.className='tree-box-name';aName.textContent=act.name;
+                        aBox.appendChild(aCb);aBox.appendChild(aName);aRow.appendChild(aBox);actLevel.appendChild(aRow);
+                    });
+                    level.appendChild(actLevel);
+                }
+                const addRow=document.createElement('div');addRow.className='tree-add-act';addRow.style.paddingLeft='24px';
+                addRow.innerHTML=`<input id="actInp_${s.id}" placeholder="Nova aktivnost..." onkeydown="if(event.key==='Enter')addActivity(${p.id},${s.id})"><button onclick="addActivity(${p.id},${s.id})"><i class="fas fa-plus"></i></button>`;
+                level.appendChild(addRow);
+            });
+            body.appendChild(level);
+        } else {
+            const empty=document.createElement('div');empty.style.cssText='font-size:11px;color:var(--muted);padding:4px 0;';empty.textContent='Nema podprojekata.';body.appendChild(empty);
+        }
+
+        const actions=document.createElement('div');actions.className='tree-actions';
+        actions.innerHTML=`<button class="proj-btn blue" onclick="openSubSheet(${p.id})"><i class="fas fa-sitemap"></i> Podprojekti</button><button class="proj-btn green" onclick="openTimeSheet(${p.id})"><i class="fas fa-clock"></i> Sati</button><button class="proj-btn" onclick="editProject(${p.id})"><i class="fas fa-edit"></i></button><button class="proj-btn red" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button>`;
+        body.appendChild(actions);
+        card.appendChild(body);
+        el.appendChild(card);
+    });
+
+    if(hidden.length>0&&!showHiddenMap['__all']){
+        const wrap=document.createElement('div');wrap.style.cssText='padding:6px 14px;';
+        wrap.innerHTML=`<button class="tree-show-btn" onclick="showHiddenMap['__all']=true;renderProjects()">+ ${hidden.length} skrivenih projekata</button>`;
+        el.appendChild(wrap);
+    }
+}
+
+function toggleTreeVisible(type,projId,subId,actId){
+    const p=projects.find(x=>x.id===projId);if(!p)return;
+    if(type==='proj'){p.visible=p.visible===false?true:false;}
+    else if(type==='sub'){const s=(p.subprojects||[]).find(x=>x.id===subId);if(!s)return;s.visible=s.visible===false?true:false;}
+    else if(type==='act'){const s=(p.subprojects||[]).find(x=>x.id===subId);if(!s)return;const a=(s.activities||[]).find(x=>x.id===actId);if(!a)return;a.visible=a.visible===false?true:false;}
+    debouncedSave();renderProjects();
+}
+
+function addActivity(projId,subId){ const p=projects.find(x=>x.id===projId);if(!p)return; const s=(p.subprojects||[]).find(x=>x.id===subId);if(!s)return; const inp=document.getElementById('actInp_'+subId);if(!inp)return; const name=inp.value.trim();if(!name){toast('Unesite naziv aktivnosti!','warning');return;} if(!s.activities)s.activities=[]; s.activities.push({id:Date.now()+Math.random(),name,visible:true,createdAt:new Date().toISOString()}); debouncedSave();renderProjects();toast(`"${name}" dodana!`,'success'); }
+
+function updateKPIs(){ document.getElementById('k-total').textContent=projects.length; document.getElementById('k-active').textContent=projects.filter(p=>p.status==='running').length; let tt=0;projects.forEach(p=>{tt+=(p.timeSpent||[]).reduce((s,e)=>s+e.hours,0);}); document.getElementById('k-time').textContent=tt+'h'; let tasks=0;projects.forEach(p=>{tasks+=(p.subprojects||[]).length;}); document.getElementById('k-tasks').textContent=tasks; document.getElementById('k-gantt').textContent=ganttDiagrams.length; let wc=0,wt=0;const ws=new Date(TODAY);ws.setDate(ws.getDate()-((ws.getDay()||7)-1)); habits.forEach(h=>{for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(d.getDate()+i);const ds=d.toISOString().split('T')[0];wt++;if(h.days&&h.days[ds])wc++;}}); document.getElementById('k-week').textContent=wt>0?Math.round(wc/wt*100)+'%':'0%'; }
+
+function openProjectSheet(editId){ editingProjId=editId||null; document.getElementById('projSheetTitle').textContent=editId?'Uredi projekt':'Novi projekt'; if(editId){const p=projects.find(x=>x.id===editId);if(!p)return;document.getElementById('pEditId').value=p.id;document.getElementById('pName').value=p.name;document.getElementById('pCat').value=p.category;document.getElementById('pStart').value=p.start.slice(0,16);document.getElementById('pEnd').value=p.end.slice(0,16);document.getElementById('pProg').value=p.progress;document.getElementById('pProgVal').textContent=p.progress+'%';document.getElementById('pStatus').value=p.status;document.getElementById('pBudget').value=p.budget||'';document.getElementById('pTeam').value=p.teamSize||'';document.getElementById('pPriority').value=p.priority||'medium';document.getElementById('pClient').value=p.client||'';}
+else{document.getElementById('pEditId').value='';document.getElementById('pName').value='';document.getElementById('pCat').value='';const now=new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate(),9,0);document.getElementById('pStart').value=now.toISOString().slice(0,16);const end=new Date(now);end.setMonth(end.getMonth()+1);document.getElementById('pEnd').value=end.toISOString().slice(0,16);document.getElementById('pProg').value=0;document.getElementById('pProgVal').textContent='0%';document.getElementById('pStatus').value='running';document.getElementById('pBudget').value='';document.getElementById('pTeam').value='';document.getElementById('pPriority').value='medium';document.getElementById('pClient').value='';}
+document.getElementById('projectSheet').classList.add('open'); }
+function closeProjectSheet(){document.getElementById('projectSheet').classList.remove('open');}
+function saveProject(){ const name=document.getElementById('pName').value.trim();const cat=document.getElementById('pCat').value.trim()||'Ostalo';const start=document.getElementById('pStart').value,end=document.getElementById('pEnd').value; if(!name||!start||!end){toast('Popunite obavezna polja!','warning');return;} const data={name,category:cat,start,end,progress:parseInt(document.getElementById('pProg').value),status:document.getElementById('pStatus').value,budget:parseInt(document.getElementById('pBudget').value)||0,teamSize:parseInt(document.getElementById('pTeam').value)||1,priority:document.getElementById('pPriority').value,riskLevel:'medium',satisfaction:7,complexity:5,client:document.getElementById('pClient').value.trim()}; if(editingProjId){const idx=projects.findIndex(p=>p.id===editingProjId);if(idx!==-1){Object.assign(projects[idx],data);toast(`"${name}" ažuriran!`,'success');}} else{const newId=Date.now();projects.push({id:newId,...data,timeSpent:[],subprojects:[],phases:[],createdAt:new Date().toISOString(),visible:true});if(!costPerProject[newId])costPerProject[newId]=[];toast(`"${name}" kreiran!`,'success');} debouncedSave();updateCalEvents();renderAll();closeProjectSheet(); }
+function editProject(id){openProjectSheet(id);}
+function deleteProject(id){ if(!confirm('Obrisati projekt?'))return; const p=projects.find(x=>x.id===id); projects=projects.filter(x=>x.id!==id);habits=habits.filter(h=>h.projectId!==id);delete timeTracking[id];delete costPerProject[id];delete collapseState[id];saveCollapseState(); if(activeCostContext&&activeCostContext.type==='project'&&activeCostContext.id===id){if(projects.length)activeCostContext={type:'project',id:projects[0].id};else if(customCosts.length)activeCostContext={type:'custom',id:customCosts[0].id};else activeCostContext=null;} debouncedSave();updateCalEvents();renderAll();toast(`"${p.name}" obrisan!`,'info'); }
+
+// ─────────────────────────────────────────────
+// HABITS
+// ─────────────────────────────────────────────
+function renderHabit(){ document.getElementById('habitMonthLabel').textContent=`${T('months')[habitMonth]} ${habitYear}`; const daysInMonth=new Date(habitYear,habitMonth+1,0).getDate(); const selProj=document.getElementById('hProjFilter').value; let list=selProj!=='all'?habits.filter(h=>h.projectId==selProj):habits; const grid=document.getElementById('habitGrid'); grid.style.setProperty('--dc',daysInMonth); grid.innerHTML=''; const hnc=makeEl('div','hcell hdr name-col');hnc.textContent='ZADATAK';grid.appendChild(hnc); const dayNames=T('days_short'); for(let d=1;d<=daysInMonth;d++){const dt=new Date(habitYear,habitMonth,d);const isToday=dt.toDateString()===TODAY.toDateString();const hd=makeEl('div','hcell hdr');if(isToday)hd.style.cssText='background:rgba(0,255,136,0.1);color:var(--g);border-bottom:2px solid var(--g);';hd.innerHTML=`<div style="text-align:center;"><div style="font-size:8px;color:var(--muted);">${dayNames[dt.getDay()]}</div><div style="font-size:12px;font-weight:700;">${d}</div></div>`;grid.appendChild(hd);} list.forEach(habit=>{const nc=makeEl('div','hcell name-col');nc.innerHTML=`<div style="display:flex;align-items:center;gap:6px;width:100%;"><div style="width:3px;height:22px;background:${habit.color};border-radius:2px;flex-shrink:0;"></div><span class="habit-name-text">${habit.name}</span><div onclick="deleteHabit(${habit.id})" style="margin-left:auto;opacity:0.4;cursor:pointer;flex-shrink:0;font-size:10px;"><i class="fas fa-times"></i></div></div>`;grid.appendChild(nc);for(let d=1;d<=daysInMonth;d++){const ds=`${habitYear}-${String(habitMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const done=habit.days&&habit.days[ds];const dc=makeEl('div',`hcell day-cell${done?' done':''}`);dc.onclick=()=>toggleHabit(habit.id,ds);dc.innerHTML=`<div class="hcheck${done?' on':''}">${done?'<i class="fas fa-check"></i>':''}</div>`;grid.appendChild(dc);}}); if(!list.length){const e=makeEl('div','');e.style.cssText='grid-column:1/-1;text-align:center;padding:20px;color:var(--muted);font-size:12px;';e.textContent='Nema zadataka.';grid.appendChild(e);} updateHabitStats(daysInMonth); }
+function updateHabitStats(daysInMonth){ if(!daysInMonth)daysInMonth=new Date(habitYear,habitMonth+1,0).getDate(); let total=habits.length*daysInMonth,done=0,maxStreak=0; habits.forEach(h=>{let s=0;for(let d=1;d<=daysInMonth;d++){const ds=`${habitYear}-${String(habitMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(h.days&&h.days[ds]){done++;s++;if(s>maxStreak)maxStreak=s;}else s=0;}}); const rate=total>0?Math.round(done/total*100):0; document.getElementById('hs-monthly').textContent=rate+'%';document.getElementById('hs-tasks').textContent=habits.length;document.getElementById('hs-streak').textContent=maxStreak;document.getElementById('hs-consistency').textContent=rate+'%'; }
+function toggleHabit(id,ds){const h=habits.find(x=>x.id===id);if(!h)return;if(!h.days)h.days={};if(h.days[ds])delete h.days[ds];else h.days[ds]=true;debouncedSave();renderHabit();updateKPIs();}
+function deleteHabit(id){if(!confirm('Obrisati habit zadatak?'))return;habits=habits.filter(h=>h.id!==id);debouncedSave();renderHabit();}
+function updateHabitProjFilter(){const sel=document.getElementById('hProjFilter');sel.innerHTML='<option value="all">Svi projekti</option>';projects.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o);});}
+function updateHabitProjSheetFilter(){const sel=document.getElementById('hTaskProj');sel.innerHTML='<option value="">Bez projekta</option>';projects.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o);});}
+function onHabitMonthChange(){habitMonth=parseInt(document.getElementById('hMonth').value);renderHabit();}
+function onHabitYearChange(){habitYear=parseInt(document.getElementById('hYear').value);renderHabit();}
+function openHabitSheet(){document.getElementById('hTaskName').value='';updateHabitProjSheetFilter();document.getElementById('habitSheet').classList.add('open');}
+function closeHabitSheet(){document.getElementById('habitSheet').classList.remove('open');}
+function saveHabit(){ const name=document.getElementById('hTaskName').value.trim();if(!name){toast('Unesite naziv!','warning');return;} const projId=document.getElementById('hTaskProj').value;const proj=projId?projects.find(p=>p.id==projId):null; habits.push({id:Date.now(),name,category:proj?proj.category:'Osobni',color:COLORS[Math.floor(Math.random()*COLORS.length)],projectId:projId?parseInt(projId):null,projectName:proj?proj.name:null,created:TODAY.toISOString().split('T')[0],days:{}}); debouncedSave();renderHabit();updateKPIs();toast(`"${name}" dodan!`,'success');closeHabitSheet(); }
+
+// ─────────────────────────────────────────────
+// GANTT
+// ─────────────────────────────────────────────
+function renderGantt(){ const el=document.getElementById('ganttList');document.getElementById('ganttBadge').textContent=ganttDiagrams.length; if(!ganttDiagrams.length){el.innerHTML=`<div class="empty"><i class="fas fa-stream"></i><p>Nema Gantt dijagrama.</p></div>`;return;} el.innerHTML=''; ganttDiagrams.forEach(g=>{const div=makeEl('div','gantt-card');div.innerHTML=`<div class="gantt-card-hdr"><div><div class="gantt-card-title"><i class="fas fa-stream" style="color:var(--red);margin-right:6px;"></i>${g.name}</div><div class="gantt-card-dates">${fmtDate(g.projectStart)} → ${fmtDate(g.projectEnd)}</div></div><div style="display:flex;gap:8px;"><div class="icon-btn" onclick="editGantt(${g.id})"><i class="fas fa-edit"></i></div><div class="icon-btn" style="background:rgba(255,68,102,0.1);color:var(--red);" onclick="deleteGantt(${g.id})"><i class="fas fa-trash"></i></div></div></div><div class="gantt-scroll"><canvas class="gc" id="gc_${g.id}"></canvas></div>`;el.appendChild(div);setTimeout(()=>drawGantt(g),60);}); }
+function drawGantt(g){ const canvas=document.getElementById(`gc_${g.id}`);if(!canvas)return; const tasks=g.tasks||[];const allTasks=[{name:g.name,start:g.projectStart,end:g.projectEnd,type:'project'},...tasks]; const rowH=34,headerH=44,labelW=120; const projStart=new Date(g.projectStart),projEnd=new Date(g.projectEnd); const totalDays=Math.max(1,Math.ceil((projEnd-projStart)/86400000)); const containerW=canvas.parentElement.offsetWidth||360; const chartW=Math.max(containerW-labelW-20,200); const totalW=labelW+chartW+20,totalH=headerH+allTasks.length*rowH+10; canvas.width=totalW;canvas.height=totalH;canvas.style.width=totalW+'px';canvas.style.height=totalH+'px'; const ctx=canvas.getContext('2d');ctx.clearRect(0,0,totalW,totalH); ctx.fillStyle='rgba(10,10,20,0.8)';ctx.fillRect(0,0,totalW,totalH); ctx.fillStyle='rgba(136,102,255,0.2)';ctx.fillRect(labelW,0,chartW,headerH); const tick=totalDays>90?14:totalDays>30?7:1; for(let d=0;d<=totalDays;d+=tick){const x=labelW+(d/totalDays)*chartW;ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,headerH*0.5);ctx.lineTo(x,totalH);ctx.stroke();const dd=new Date(projStart.getTime()+d*86400000);ctx.fillStyle='#777';ctx.font='9px DM Sans';ctx.textAlign='center';ctx.fillText(`${dd.getDate()}.${dd.getMonth()+1}`,x,headerH*0.38);} const todayOff=Math.ceil((TODAY-projStart)/86400000); if(todayOff>=0&&todayOff<=totalDays){const tx=labelW+(todayOff/totalDays)*chartW;ctx.strokeStyle='#ff4466';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(tx,0);ctx.lineTo(tx,totalH);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#ff4466';ctx.font='bold 9px DM Sans';ctx.textAlign='center';ctx.fillText('DANAS',tx,headerH-5);} allTasks.forEach((task,i)=>{const y=headerH+i*rowH;const ts=new Date(task.start),te=new Date(task.end||task.deadline||g.projectEnd);const so=Math.max(0,(ts-projStart)/86400000),eo=Math.min(totalDays,(te-projStart)/86400000);const bw=Math.max(4,((eo-so)/totalDays)*chartW),bx=labelW+(so/totalDays)*chartW;ctx.fillStyle=i%2===0?'rgba(255,255,255,0.015)':'rgba(255,255,255,0.008)';ctx.fillRect(0,y,totalW,rowH);ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,y+rowH);ctx.lineTo(totalW,y+rowH);ctx.stroke();ctx.fillStyle='#ccc';ctx.font='10px DM Sans';ctx.textAlign='left';const lbl=task.name.length>16?task.name.slice(0,14)+'..':task.name;ctx.fillText(lbl,6,y+rowH/2+4);const barColor=task.type==='project'?'#8866ff':task.type==='delay'?'#ff4466':COLORS[i%COLORS.length];const barH=rowH*0.55,barY=y+(rowH-barH)/2;ctx.fillStyle=barColor+'44';ctx.beginPath();rRect(ctx,bx,barY,bw,barH,3);ctx.fill();ctx.fillStyle=barColor;ctx.beginPath();rRect(ctx,bx,barY,Math.max(4,bw*0.97),barH,3);ctx.fill();if(bw>40){const days=Math.ceil((te-ts)/86400000);ctx.fillStyle='rgba(0,0,0,0.6)';ctx.font='8px DM Sans';ctx.textAlign='center';ctx.fillText(`${days}d`,bx+bw/2,barY+barH/2+3);}}); }
+function rRect(ctx,x,y,w,h,r){ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
+function openGanttSheet(editId){ editingGanttId=editId||null;document.getElementById('gSheetTitle').textContent=editId?'Uredi Gantt':'Novi Gantt dijagram';document.getElementById('gEditId').value=editId||'';document.getElementById('gTaskRows').innerHTML=''; if(editId){const g=ganttDiagrams.find(x=>x.id==editId);if(g){document.getElementById('gName').value=g.name;document.getElementById('gStart').value=g.projectStart;document.getElementById('gEnd').value=g.projectEnd;(g.tasks||[]).forEach(t=>addGTaskRow(t));}} else{document.getElementById('gName').value='';document.getElementById('gStart').value=TODAY.toISOString().split('T')[0];const e=new Date(TODAY);e.setMonth(e.getMonth()+1);document.getElementById('gEnd').value=e.toISOString().split('T')[0];addGTaskRow({name:'Početak projekta',start:TODAY.toISOString().slice(0,16),end:'',type:'task'});} document.getElementById('ganttSheet').classList.add('open'); }
+function closeGanttSheet(){document.getElementById('ganttSheet').classList.remove('open');}
+function addGTaskRow(task){ const container=document.getElementById('gTaskRows');const div=makeEl('div','gtask-row'); div.innerHTML=`<select class="finput" data-f="type" style="margin-bottom:8px;padding:8px 10px;font-size:13px;"><option value="task">Zadatak</option><option value="milestone">Milestone</option><option value="delay">Zastoj</option></select><input class="finput" data-f="name" placeholder="Naziv stavke" value="${task?task.name:''}" style="margin-bottom:8px;padding:8px 10px;font-size:13px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;"><input class="finput" type="datetime-local" data-f="start" value="${task?task.start:''}" style="padding:8px 10px;font-size:12px;"><input class="finput" type="datetime-local" data-f="end" value="${task&&task.end?task.end:''}" style="padding:8px 10px;font-size:12px;"></div><button type="button" class="rm-btn" onclick="this.parentElement.remove()"><i class="fas fa-times"></i> Ukloni stavku</button>`; if(task)div.querySelector('[data-f="type"]').value=task.type||'task';container.appendChild(div); }
+function saveGantt(){ const name=document.getElementById('gName').value.trim(),pStart=document.getElementById('gStart').value,pEnd=document.getElementById('gEnd').value; if(!name||!pStart||!pEnd){toast('Popunite obavezna polja!','warning');return;} const rows=document.querySelectorAll('#gTaskRows .gtask-row'),tasks=[]; rows.forEach(r=>{const tn=r.querySelector('[data-f="name"]').value.trim(),ts=r.querySelector('[data-f="start"]').value;if(tn&&ts)tasks.push({id:Date.now()+Math.random(),name:tn,start:ts,end:r.querySelector('[data-f="end"]').value||pEnd,type:r.querySelector('[data-f="type"]').value});}); const editId=document.getElementById('gEditId').value; if(editId){const idx=ganttDiagrams.findIndex(g=>g.id==editId);if(idx!==-1){ganttDiagrams[idx]={...ganttDiagrams[idx],name,projectStart:pStart,projectEnd:pEnd,tasks};toast('Gantt ažuriran!','success');}} else{ganttDiagrams.push({id:Date.now(),name,projectStart:pStart,projectEnd:pEnd,tasks,createdAt:new Date().toISOString()});toast(`Gantt "${name}" kreiran!`,'success');} debouncedSave();closeGanttSheet();renderGantt();updateKPIs(); }
+function editGantt(id){openGanttSheet(id);}
+function deleteGantt(id){if(!confirm('Obrisati Gantt dijagram?'))return;ganttDiagrams=ganttDiagrams.filter(g=>g.id!==id);debouncedSave();renderGantt();updateKPIs();toast('Gantt obrisan!','info');}
+
+// ─────────────────────────────────────────────
+// CALENDAR
+// ─────────────────────────────────────────────
+function updateCalSize(val){calCellSize=parseInt(val);document.getElementById('calSizeLabel').textContent=val+'px';renderCalendar();}
+function renderCalendar(){ document.getElementById('calMonthLabel').textContent=`${T('months')[calMonth]} ${calYear}`; const daysEl=document.getElementById('calDays');daysEl.innerHTML=''; const dn=document.getElementById('calDayNames');const ds=T('days_short'); const bsOrder=lang==='bs'?[1,2,3,4,5,6,0]:[0,1,2,3,4,5,6]; dn.innerHTML=bsOrder.map(i=>`<div class="cdn">${ds[i]}</div>`).join(''); const firstDay=new Date(calYear,calMonth,1);let rawDay=firstDay.getDay();let startDay=lang==='bs'?(rawDay===0?6:rawDay-1):rawDay; const daysInMonth=new Date(calYear,calMonth+1,0).getDate(); const sz=calCellSize+'px';const r=Math.max(6,calCellSize/4)+'px';const fs=Math.max(10,Math.min(18,calCellSize*0.38))+'px'; for(let i=0;i<startDay;i++){const e=makeEl('div','cal-day other');e.style.cssText=`height:${sz};font-size:${fs};border-radius:${r};`;daysEl.appendChild(e);} for(let d=1;d<=daysInMonth;d++){const dsStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const isToday=TODAY.getFullYear()===calYear&&TODAY.getMonth()===calMonth&&TODAY.getDate()===d;const hasEv=calendarEvents[dsStr]&&calendarEvents[dsStr].length>0;const hasCalTask=calendarTasks.some(t=>t.date===dsStr);let cls='cal-day';if(isToday)cls+=' today';if(hasEv)cls+=' has-ev';if(hasCalTask)cls+=' has-cal-task';const el=makeEl('div',cls);el.style.cssText=`height:${sz};font-size:${fs};border-radius:${r};`;el.textContent=d;el.onclick=()=>showCalDay(dsStr,d);daysEl.appendChild(el);} renderCalTaskList(); }
+function renderCalTaskList(){ const el=document.getElementById('calTaskList');if(!el)return; const monthTasks=calendarTasks.filter(t=>{const d=new Date(t.date);return d.getFullYear()===calYear&&d.getMonth()===calMonth;}).sort((a,b)=>new Date(a.date)-new Date(b.date)); if(!monthTasks.length){el.innerHTML='<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px;">Nema zadataka. Klikni + da dodaš.</div>';return;} el.innerHTML=monthTasks.map(t=>`<div class="cal-task-item"><div><i class="fas fa-tasks" style="color:var(--g);margin-right:6px;"></i><strong>${t.name}</strong> <span style="font-size:10px;color:var(--muted);">(${t.date})</span></div><button class="del-btn" onclick="deleteCalendarTask(${t.id})"><i class="fas fa-trash"></i></button></div>`).join(''); }
+function showCalDay(ds,d){const evs=calendarEvents[ds]||[];const cts=calendarTasks.filter(t=>t.date===ds);let msg=`${d}. ${calMonth+1}. ${calYear}:\n`;evs.forEach(e=>msg+=`• ${e.name}\n`);cts.forEach(t=>msg+=`📋 ${t.name}\n`);if(!evs.length&&!cts.length){toast(`${d}. ${calMonth+1}. ${calYear} — nema događaja`,'info');return;}alert(msg);}
+function prevCalMonth(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
+function nextCalMonth(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function openCalendarTaskSheet(){document.getElementById('ctName').value='';document.getElementById('ctDate').value=TODAY.toISOString().split('T')[0];document.getElementById('calendarTaskSheet').classList.add('open');}
+function closeCalendarTaskSheet(){document.getElementById('calendarTaskSheet').classList.remove('open');}
+function saveCalendarTask(){const name=document.getElementById('ctName').value.trim();const date=document.getElementById('ctDate').value;if(!name){toast('Unesite naziv zadatka!','warning');return;}if(!date){toast('Odaberite datum!','warning');return;}calendarTasks.push({id:Date.now(),name,date,createdAt:new Date().toISOString()});debouncedSave();renderCalendar();toast(`Zadatak "${name}" dodan na ${date}!`,'success');closeCalendarTaskSheet();}
+function deleteCalendarTask(id){calendarTasks=calendarTasks.filter(t=>t.id!==id);debouncedSave();renderCalendar();toast('Zadatak obrisan!','info');}
+
+// ─────────────────────────────────────────────
+// NAPOMENA
+// ─────────────────────────────────────────────
+function saveNapomena(){ const from=document.getElementById('eFrom').value.trim(),to=document.getElementById('eTo').value.trim(),subject=document.getElementById('eSubject').value.trim(),body=document.getElementById('eBody').value.trim(); if(!subject&&!body){toast('Unesite naslov ili poruku!','warning');return null;} const id=Date.now();napomene.unshift({id,from,to,subject,body,date:new Date().toLocaleString('hr-HR'),scheduled:null,sent:false});debouncedSave();renderNapomenaList();return id; }
+function sendEmailNow(){const to=document.getElementById('eTo').value.trim();const subject=encodeURIComponent(document.getElementById('eSubject').value.trim());const body=encodeURIComponent(document.getElementById('eBody').value.trim());if(!to){toast('Unesite primatelja!','warning');return;}const id=saveNapomena();if(id){const n=napomene.find(x=>x.id===id);if(n)n.sent=true;debouncedSave();renderNapomenaList();}window.location.href=`mailto:${to}?subject=${subject}&body=${body}`;toast('Email klijent otvoren!','success');}
+function renderNapomenaList(){ const el=document.getElementById('napomenaList');document.getElementById('napomenaBadge').textContent=napomene.length; if(!napomene.length){el.innerHTML='<div class="empty"><i class="fas fa-inbox"></i><p>Nema sačuvanih napomena.</p></div>';return;} el.innerHTML=napomene.map(n=>`<div class="napomena-card"><div class="napomena-card-hdr"><div class="napomena-card-subject">${n.subject||'(bez naslova)'}</div><button class="napomena-del-btn" onclick="deleteNapomena(${n.id})"><i class="fas fa-trash"></i></button></div><div class="napomena-card-meta">${n.from?`<span>${n.from}</span>`:''}${n.to?`<span>→ ${n.to}</span>`:''}<span style="margin-left:auto;">${n.date}</span></div><div class="napomena-card-body">${n.body||''}</div></div>`).join(''); }
+function deleteNapomena(id){napomene=napomene.filter(n=>n.id!==id);scheduledEmails=scheduledEmails.filter(s=>s.napomenaId!==id);debouncedSave();renderNapomenaList();toast('Napomena obrisana!','info');}
+
+// ─────────────────────────────────────────────
+// TIME
+// ─────────────────────────────────────────────
+function openTimeSheet(projId){currentTimeProjId=projId;const p=projects.find(x=>x.id===projId);if(!p)return;document.getElementById('tProjName').textContent=p.name;document.getElementById('tDate').value=TODAY.toISOString().split('T')[0];document.getElementById('tHours').value=1;document.getElementById('tDesc').value='';const hist=document.getElementById('tHistory');const entries=(p.timeSpent||[]).slice(-5).reverse();if(!entries.length)hist.innerHTML='<div style="text-align:center;padding:8px;color:var(--muted);font-size:12px;">Nema evidencije.</div>';else hist.innerHTML=entries.map(e=>`<div class="tlog-item"><div><div style="font-size:12px;font-weight:600;">${e.hours}h — ${e.description||'Bez opisa'}</div><div style="font-size:10px;color:var(--muted);">${e.date}</div></div></div>`).join('');document.getElementById('timeSheet').classList.add('open');}
+function closeTimeSheet(){document.getElementById('timeSheet').classList.remove('open');}
+function saveTime(){const h=parseFloat(document.getElementById('tHours').value),d=document.getElementById('tDate').value,desc=document.getElementById('tDesc').value.trim();if(!h||h<=0){toast('Unesite validan broj sati!','warning');return;}const p=projects.find(x=>x.id===currentTimeProjId);if(!p)return;if(!p.timeSpent)p.timeSpent=[];p.timeSpent.push({id:Date.now(),hours:h,date:d,description:desc});debouncedSave();renderProjects();updateKPIs();openTimeSheet(currentTimeProjId);toast(`Dodano ${h}h!`,'success');}
+
+// ─────────────────────────────────────────────
+// SUBPROJECTS
+// ─────────────────────────────────────────────
+function openSubSheet(projId){currentSubProjId=projId;const p=projects.find(x=>x.id===projId);if(!p)return;document.getElementById('spParentId').value=projId;document.getElementById('spName').value='';document.getElementById('spStart').value=p.start.slice(0,16);document.getElementById('spDeadline').value=p.end.slice(0,16);const list=document.getElementById('spExistingList');const subs=p.subprojects||[];if(subs.length)list.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">POSTOJEĆI PODPROJEKTI</div>`+subs.map(s=>`<div class="subproj-item"><div><div class="subproj-item-name">${s.name}</div><div class="subproj-item-meta">Prioritet: ${s.priority}</div></div></div>`).join('');else list.innerHTML='';document.getElementById('subSheet').classList.add('open');}
+function closeSubSheet(){document.getElementById('subSheet').classList.remove('open');}
+function saveSubproject(){const name=document.getElementById('spName').value.trim();if(!name){toast('Unesite naziv!','warning');return;}const p=projects.find(x=>x.id===currentSubProjId);if(!p)return;const sub={id:Date.now(),name,start:document.getElementById('spStart').value,deadline:document.getElementById('spDeadline').value,priority:document.getElementById('spPriority').value,visible:true,activities:[]};if(!p.subprojects)p.subprojects=[];p.subprojects.push(sub);if(document.getElementById('spHabit').checked)habits.push({id:Date.now()+1,name:`📋 ${name}`,category:p.category||'Posao',color:COLORS[Math.floor(Math.random()*COLORS.length)],projectId:p.id,projectName:p.name,created:TODAY.toISOString().split('T')[0],days:{}});debouncedSave();updateCalEvents();renderAll();openSubSheet(currentSubProjId);document.getElementById('spName').value='';toast(`Podprojekt "${name}" dodan!`,'success');}
+
+// ─────────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────────
+function renderDashCharts(){ document.getElementById('dTotal').textContent=projects.length;document.getElementById('dBudget').textContent=projects.reduce((s,p)=>s+(p.budget||0),0).toLocaleString()+'€';document.getElementById('dTeam').textContent=projects.reduce((s,p)=>s+(p.teamSize||0),0);const avgC=projects.length?(projects.reduce((s,p)=>s+(p.complexity||5),0)/projects.length).toFixed(1):0;document.getElementById('dComplexity').textContent=avgC; if(cDonut)cDonut.destroy();if(cBar)cBar.destroy();if(cTime)cTime.destroy(); const catCount={};projects.forEach(p=>{catCount[p.category]=(catCount[p.category]||0)+1;}); const donutEl=document.getElementById('cDonut');if(donutEl)cDonut=new Chart(donutEl.getContext('2d'),{type:'doughnut',data:{labels:Object.keys(catCount),datasets:[{data:Object.values(catCount),backgroundColor:['#27ae60','#3498db','#8866ff','#f39c12','#e74c3c','#1abc9c'],borderWidth:2,borderColor:'#111118'}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'right',labels:{color:'#ccc',font:{size:10},boxWidth:12}}}}}); const barEl=document.getElementById('cBar');if(barEl)cBar=new Chart(barEl.getContext('2d'),{type:'bar',data:{labels:projects.map(p=>p.name.slice(0,10)),datasets:[{label:'%',data:projects.map(p=>p.progress),backgroundColor:'rgba(0,255,136,0.6)',borderColor:'#00ff88',borderWidth:1,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:true,scales:{y:{beginAtZero:true,max:100,ticks:{color:'#777'},grid:{color:'rgba(255,255,255,0.05)'}},x:{ticks:{color:'#777'},grid:{display:false}}},plugins:{legend:{labels:{color:'#ccc',font:{size:11}}}}}}); const tEl=document.getElementById('cTime');const tData=projects.map(p=>(p.timeSpent||[]).reduce((s,e)=>s+e.hours,0));if(tEl)cTime=new Chart(tEl.getContext('2d'),{type:'bar',data:{labels:projects.map(p=>p.name.slice(0,10)),datasets:[{label:'Sati',data:tData,backgroundColor:'rgba(68,136,255,0.6)',borderColor:'#4488ff',borderWidth:1,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:true,scales:{y:{beginAtZero:true,ticks:{color:'#777'},grid:{color:'rgba(255,255,255,0.05)'}},x:{ticks:{color:'#777'},grid:{display:false}}},plugins:{legend:{labels:{color:'#ccc',font:{size:11}}}}}}); const aiEl=document.getElementById('aiText');if(!projects.length){aiEl.textContent='Nema projekata.';return;} const running=projects.filter(p=>p.status==='running');const tt=projects.reduce((s,p)=>s+(p.timeSpent||[]).reduce((ss,e)=>ss+e.hours,0),0);const avgP=projects.reduce((s,p)=>s+p.progress,0)/projects.length; let txt=`📊 Projekata: ${projects.length} (${running.length} aktivnih)\n⏱ Sati: ${tt}h | Napredak: ${avgP.toFixed(1)}%\n📋 Habit zadaci: ${habits.length} | Gantt: ${ganttDiagrams.length}\n\n`; const critical=running.filter(p=>{const d=Math.ceil((new Date(p.end)-TODAY)/86400000);return d<30&&p.progress<50;}); if(critical.length){txt+=`🚨 KRITIČNI (${critical.length}):\n`;critical.forEach(p=>{const d=Math.ceil((new Date(p.end)-TODAY)/86400000);txt+=`  → ${p.name}: ${d}d, ${p.progress}%\n`;});}else txt+=`✅ Nema kritičnih projekata.`; aiEl.textContent=txt; }
+
+// ─────────────────────────────────────────────
+// TROŠKOVNIK
+// ─────────────────────────────────────────────
+function getCostCurrentItems(){if(!activeCostContext)return[];if(activeCostContext.type==='project'){return costPerProject[activeCostContext.id]||[];}else{const found=customCosts.find(c=>c.id===activeCostContext.id);return found?found.items:[];}}
+function setCostCurrentItems(newItems){if(!activeCostContext)return;if(activeCostContext.type==='project'){costPerProject[activeCostContext.id]=newItems;}else{const idx=customCosts.findIndex(c=>c.id===activeCostContext.id);if(idx!==-1)customCosts[idx].items=newItems;}debouncedSave();renderCostTableAndKpi();renderCostWeeklyChart();}
+function getCostContextLabel(){if(!activeCostContext)return'—';if(activeCostContext.type==='project'){const p=projects.find(pj=>pj.id===activeCostContext.id);return p?p.name:'projekt';}else{const c=customCosts.find(ct=>ct.id===activeCostContext.id);return c?c.name:'troškovnik';}}
+function renderCostTabs(){ const container=document.getElementById('costTabsContainer');if(!container)return; let html=''; projects.forEach(proj=>{const isActive=(activeCostContext&&activeCostContext.type==='project'&&activeCostContext.id===proj.id);html+=`<div class="cost-tab ${isActive?'active':''}" data-cost-type="project" data-cost-id="${proj.id}"><i class="fas fa-diagram-project"></i> ${escapeHtml(proj.name)}</div>`;}); customCosts.forEach(cust=>{const isActive=(activeCostContext&&activeCostContext.type==='custom'&&activeCostContext.id===cust.id);html+=`<div class="cost-tab custom-tab ${isActive?'active':''}" data-cost-type="custom" data-cost-id="${cust.id}"><i class="fas fa-folder"></i> ${escapeHtml(cust.name)} <span class="tab-delete-icon" data-del-custom="${cust.id}"><i class="fas fa-times-circle"></i></span></div>`;}); container.innerHTML=html; container.querySelectorAll('.cost-tab').forEach(tab=>{tab.addEventListener('click',(e)=>{if(e.target.closest('.tab-delete-icon'))return;const type=tab.dataset.costType;const id=type==='project'?parseInt(tab.dataset.costId):tab.dataset.costId;activeCostContext={type,id};renderCostAll();});}); container.querySelectorAll('.tab-delete-icon').forEach(delSpan=>{delSpan.addEventListener('click',(e)=>{e.stopPropagation();const custId=delSpan.dataset.delCustom;if(custId&&confirm('Obrisati ovaj troškovnik?')){customCosts=customCosts.filter(c=>c.id!==custId);if(activeCostContext&&activeCostContext.type==='custom'&&activeCostContext.id===custId){if(projects.length)activeCostContext={type:'project',id:projects[0].id};else if(customCosts.length)activeCostContext={type:'custom',id:customCosts[0].id};else activeCostContext=null;}debouncedSave();renderCostAll();toast('Troškovnik izbrisan!','info');}});}); }
+function renderCostTableAndKpi(){ const items=getCostCurrentItems();const total=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);const avg=items.length?total/items.length:0; document.getElementById('totalCostKpi').innerText=total.toLocaleString('hr-HR',{minimumFractionDigits:2})+'€';document.getElementById('totalItemsKpi').innerText=items.length;document.getElementById('avgCostKpi').innerText=avg.toLocaleString('hr-HR',{minimumFractionDigits:2})+'€'; const tbody=document.getElementById('costTableBody'); if(!items.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--muted);font-size:12px;">📭 Nema stavki.</td></tr>`;return;} let rows=''; items.forEach(item=>{rows+=`<tr><td><span class="cost-src-badge">${escapeHtml(item.source||'Ručno')}</span></td><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.category||'—')}</td><td><input type="number" step="any" class="cost-inline-input" data-cost-id="${item.id}" data-cost-field="qty" value="${item.qty||0}"></td><td><input type="number" step="0.01" class="cost-inline-input" data-cost-id="${item.id}" data-cost-field="price" value="${item.price||0}"></td><td><input type="number" step="0.01" class="cost-inline-input" style="background:#2a2410;" data-cost-id="${item.id}" data-cost-field="amount" value="${(parseFloat(item.amount)||0).toFixed(2)}"></td><td><input type="date" class="cost-inline-input cost-inline-date" data-cost-id="${item.id}" data-cost-field="date" value="${item.date||''}"></td><td><input type="text" class="cost-inline-input" data-cost-id="${item.id}" data-cost-field="note" value="${escapeHtml(item.note||'')}" placeholder="napomena"></td><td><button class="cost-del-btn-icon" data-cost-del-id="${item.id}"><i class="fas fa-trash-alt"></i></button></td></tr>`;}); tbody.innerHTML=rows; tbody.querySelectorAll('.cost-inline-input').forEach(inp=>{inp.addEventListener('change',()=>{const id=parseInt(inp.dataset.costId);const field=inp.dataset.costField;let itemsArr=getCostCurrentItems();const idx=itemsArr.findIndex(i=>i.id===id);if(idx===-1)return;if(field==='qty')itemsArr[idx].qty=parseFloat(inp.value)||0;else if(field==='price')itemsArr[idx].price=parseFloat(inp.value)||0;else if(field==='amount')itemsArr[idx].amount=parseFloat(inp.value)||0;else if(field==='date')itemsArr[idx].date=inp.value;else if(field==='note')itemsArr[idx].note=inp.value;if(field==='qty'||field==='price'){const q=itemsArr[idx].qty||0;const p=itemsArr[idx].price||0;if(q>0&&p>0)itemsArr[idx].amount=+(q*p).toFixed(2);else if(p>0&&q===0)itemsArr[idx].amount=p;}setCostCurrentItems(itemsArr);});}); tbody.querySelectorAll('.cost-del-btn-icon').forEach(btn=>{btn.addEventListener('click',()=>{const delId=parseInt(btn.dataset.costDelId);setCostCurrentItems(getCostCurrentItems().filter(i=>i.id!==delId));toast('Stavka uklonjena!','info');});}); }
+function renderCostWeeklyChart(){ const items=getCostCurrentItems();const weeklyMap=new Map(); items.forEach(item=>{if(!item.date)return;const d=new Date(item.date);if(isNaN(d.getTime()))return;const week=getCostWeekNumber(d);const yearWeek=`${d.getFullYear()}-W${week}`;const amt=parseFloat(item.amount)||0;weeklyMap.set(yearWeek,(weeklyMap.get(yearWeek)||0)+amt);}); const sortedWeeks=Array.from(weeklyMap.keys()).sort();const lastWeeks=sortedWeeks.slice(-10);const labels=lastWeeks.map(w=>`Tj ${w.split('-W')[1]}`);const data=lastWeeks.map(w=>weeklyMap.get(w)); const canvas=document.getElementById('weeklyCostTrendChart');if(costChartInstance)costChartInstance.destroy(); costChartInstance=new Chart(canvas.getContext('2d'),{type:'bar',data:{labels:labels.length?labels:['Nema podataka'],datasets:[{label:'Ukupni trošak (€)',data:labels.length?data:[0],backgroundColor:'rgba(255,170,34,0.7)',borderRadius:8,barPercentage:0.65}]},options:{responsive:true,maintainAspectRatio:true,plugins:{tooltip:{callbacks:{label:(ctx)=>`${ctx.raw.toFixed(2)} €`}},legend:{labels:{color:'#ccc',font:{size:11}}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#aaa',callback:(v)=>v+'€'}},x:{ticks:{color:'#aaa',font:{size:10}},grid:{display:false}}}}}); }
+function getCostWeekNumber(date){const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));const dayNum=d.getUTCDay()||7;d.setUTCDate(d.getUTCDate()+4-dayNum);const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.ceil((((d-yearStart)/86400000)+1)/7);}
+function addCostItem(){ if(!activeCostContext){toast('Prvo odaberite projekt ili troškovnik','warning');return;} const name=document.getElementById('costItemName').value.trim();if(!name){toast('Unesite naziv stavke','warning');return;} const category=document.getElementById('costItemCategory').value;let qty=parseFloat(document.getElementById('costItemQty').value)||0;let price=parseFloat(document.getElementById('costItemPrice').value)||0;let amount=parseFloat(document.getElementById('costItemAmount').value)||0; if(qty>0&&price>0)amount=qty*price;else if(price>0&&amount===0)amount=price; const date=document.getElementById('costItemDate').value||TODAY.toISOString().split('T')[0];const note=document.getElementById('costItemNote').value; const newItem={id:Date.now()+Math.random()*1000,source:'manual',name,category,qty,price,amount:parseFloat(amount).toFixed(2),date,note,createdAt:new Date().toISOString()}; const currentItems=getCostCurrentItems();currentItems.push(newItem);setCostCurrentItems(currentItems); document.getElementById('costItemName').value='';document.getElementById('costItemQty').value='1';document.getElementById('costItemPrice').value='';document.getElementById('costItemAmount').value='';document.getElementById('costItemNote').value='';document.getElementById('costItemDate').value=TODAY.toISOString().split('T')[0]; toast('Stavka dodana!','success'); }
+function createCustomCost(){let newName=prompt('Naziv novog troškovnika:','Npr. Sezonski troškovi');if(!newName)return;const newId='custom_'+Date.now();customCosts.push({id:newId,name:newName,items:[]});activeCostContext={type:'custom',id:newId};debouncedSave();renderCostAll();toast('Troškovnik kreiran!','success');}
+function previewCostAmount(){const q=parseFloat(document.getElementById('costItemQty').value)||0;const p=parseFloat(document.getElementById('costItemPrice').value)||0;if(q>0&&p>0)document.getElementById('costItemAmount').value=(q*p).toFixed(2);else if(p>0)document.getElementById('costItemAmount').value=p.toFixed(2);else document.getElementById('costItemAmount').value='';}
+function renderCostAll(){if(!activeCostContext&&projects.length)activeCostContext={type:'project',id:projects[0].id};else if(!activeCostContext&&customCosts.length)activeCostContext={type:'custom',id:customCosts[0].id};document.getElementById('activeCostContextLabel').innerText=getCostContextLabel();renderCostTabs();renderCostTableAndKpi();renderCostWeeklyChart();}
+
+// ─────────────────────────────────────────────
+// FAB + EXCEL
+// ─────────────────────────────────────────────
+function openFAB(){document.getElementById('fabOverlay').classList.add('open');}
+function closeFAB(){document.getElementById('fabOverlay').classList.remove('open');}
+function exportToExcel(){ try{ const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Projekt','Kategorija','Početak','Kraj','Napredak','Status','Budžet','Tim'],...projects.map(p=>[p.name,p.category,p.start,p.end,p.progress+'%',p.status,p.budget||0,p.teamSize||0])]),'Projekti'); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Zadatak','Kategorija','Projekt','Završeno dana'],...habits.map(h=>[h.name,h.category,h.projectName||'',Object.keys(h.days||{}).length])]),'Habit Tracker'); if(ganttDiagrams.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Gantt','Početak','Kraj','Zadataka'],...ganttDiagrams.map(g=>[g.name,g.projectStart,g.projectEnd,(g.tasks||[]).length])]),'Gantt'); if(napomene.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Od','Za','Naslov','Poruka','Datum'],...napomene.map(n=>[n.from,n.to,n.subject,n.body,n.date])]),'Napomene'); const allCostItems=[];Object.entries(costPerProject).forEach(([projId,items])=>{const p=projects.find(pj=>pj.id===parseInt(projId));items.forEach(i=>allCostItems.push([p?p.name:'Projekt '+projId,i.name,i.category,i.qty,i.price,i.amount,i.date,i.note]));});customCosts.forEach(ct=>{ct.items.forEach(i=>allCostItems.push([ct.name,i.name,i.category,i.qty,i.price,i.amount,i.date,i.note]));}); if(allCostItems.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Izvor','Naziv','Kategorija','Količina','Cijena','Iznos','Datum','Bilješka'],...allCostItems]),'Troškovnik'); XLSX.writeFile(wb,`Dashboard_${TODAY.toISOString().slice(0,10)}.xlsx`);toast('Excel preuzet!','success'); }catch(e){toast('Greška!','error');} }
+
+// ─────────────────────────────────────────────
+// PDF / UČENJE  (unchanged from original)
+// ─────────────────────────────────────────────
+function handlePdfUpload(event){const file=event.target.files[0];if(!file)return;loadPdfFile(file);}
+async function loadPdfFile(file){ if(file.type!=='application/pdf'&&!file.name.toLowerCase().endsWith('.pdf')){toast('Molimo učitajte PDF fajl!','warning');return;} showProgress('Učitavam PDF...',10); pdfFileName=file.name;pdfAnnotations={};audioBlob=null;document.getElementById('audioPlayerCard').style.display='none'; try{ pdfArrayBuffer=await file.arrayBuffer();showProgress('Parsiram stranice...',40); if(typeof pdfjsLib==='undefined'){toast('PDF.js nije učitan.','error');hideProgress();return;} pdfDoc=await pdfjsLib.getDocument({data:pdfArrayBuffer.slice(0)}).promise;pdfTotalPages=pdfDoc.numPages;pdfCurrentPage=1;showProgress('Ekstrahujem tekst...',65); pdfExtractedText=''; for(let i=1;i<=pdfTotalPages;i++){const page=await pdfDoc.getPage(i);const content=await page.getTextContent();pdfExtractedText+=`\n\n--- Stranica ${i} ---\n`;pdfExtractedText+=content.items.map(s=>s.str).join(' ');} const words=pdfExtractedText.trim().split(/\s+/).filter(w=>w.length>0).length; showProgress('Renderujem stranicu...',85);await renderPdfPage(pdfCurrentPage);showProgress('Gotovo!',100); document.getElementById('pdfFileInfo').style.display='flex';document.getElementById('pdfFileName').textContent=pdfFileName;document.getElementById('pdfFileMeta').textContent=`${pdfTotalPages} stranica • ${words.toLocaleString()} riječi`;document.getElementById('ucenjeToolbar').style.display='flex';document.getElementById('annotToolbar').style.display='flex';document.getElementById('pdfPageNav').style.display='flex';document.getElementById('pdfViewerWrap').style.display='block';document.getElementById('uk-pages').textContent=pdfTotalPages;document.getElementById('uk-words').textContent=words>999?Math.round(words/1000)+'k':words;updateAnnotCount();setupAnnotationCanvas();setTimeout(hideProgress,400);toast(`"${pdfFileName}" učitan! ${pdfTotalPages} stranica.`,'success'); }catch(err){console.error(err);toast('Greška pri učitavanju PDF-a: '+err.message,'error');hideProgress();} }
+async function renderPdfPage(pageNum){ if(!pdfDoc)return;const page=await pdfDoc.getPage(pageNum);const canvas=document.getElementById('pdfCanvas');const container=document.getElementById('pdfPageContainer');const containerWidth=container.parentElement.offsetWidth||350;const viewport=page.getViewport({scale:1});const scale=(containerWidth-4)/viewport.width;const scaledViewport=page.getViewport({scale});canvas.width=scaledViewport.width;canvas.height=scaledViewport.height;canvas.style.width='100%';const ctx=canvas.getContext('2d');await page.render({canvasContext:ctx,viewport:scaledViewport}).promise;const aCanvas=document.getElementById('annotCanvas');aCanvas.width=canvas.width;aCanvas.height=canvas.height;aCanvas.style.width=canvas.style.width;aCanvas.style.height=canvas.style.height||canvas.height+'px';document.getElementById('pdfPageLabel').textContent=`Str. ${pageNum} / ${pdfTotalPages}`;pdfScale=scale;redrawAnnotations(pageNum); }
+function setupAnnotationCanvas(){ const aCanvas=document.getElementById('annotCanvas');const fresh=aCanvas.cloneNode(true);aCanvas.parentNode.replaceChild(fresh,aCanvas);const ac=document.getElementById('annotCanvas');ac.addEventListener('mousedown',annotMouseDown);ac.addEventListener('mousemove',annotMouseMove);ac.addEventListener('mouseup',annotMouseUp);ac.addEventListener('touchstart',annotTouchStart,{passive:false});ac.addEventListener('touchmove',annotTouchMove,{passive:false});ac.addEventListener('touchend',annotTouchEnd,{passive:false}); }
+function annotTouchStart(e){e.preventDefault();const t=e.touches[0];const r=e.currentTarget.getBoundingClientRect();annotMouseDown({offsetX:t.clientX-r.left,offsetY:t.clientY-r.top,currentTarget:e.currentTarget});}
+function annotTouchMove(e){e.preventDefault();const t=e.touches[0];const r=e.currentTarget.getBoundingClientRect();annotMouseMove({offsetX:t.clientX-r.left,offsetY:t.clientY-r.top,currentTarget:e.currentTarget});}
+function annotTouchEnd(e){e.preventDefault();annotMouseUp({});}
+function annotMouseDown(e){ if(!annotMode)return; if(annotMode==='note'){currentNotePos={x:e.offsetX,y:e.offsetY};const popup=document.getElementById('notePopup');popup.style.left=Math.min(e.offsetX,document.getElementById('pdfCanvas').width-190)+'px';popup.style.top=Math.min(e.offsetY,document.getElementById('pdfCanvas').height-110)+'px';popup.style.display='block';document.getElementById('noteText').value='';document.getElementById('noteText').focus();return;} if(annotMode==='erase'){eraseAt(e.offsetX,e.offsetY);return;} isDrawing=true;drawStart={x:e.offsetX,y:e.offsetY}; }
+function annotMouseMove(e){ if(!isDrawing||!annotMode)return;if(annotMode==='erase'){eraseAt(e.offsetX,e.offsetY);return;} const ac=document.getElementById('annotCanvas');const ctx=ac.getContext('2d');redrawAnnotations(pdfCurrentPage);const x=Math.min(drawStart.x,e.offsetX),y=Math.min(drawStart.y,e.offsetY),w=Math.abs(e.offsetX-drawStart.x),h=Math.abs(e.offsetY-drawStart.y);ctx.fillStyle=modeToColor(annotMode,0.35);ctx.fillRect(x,y,w,h); }
+function annotMouseUp(e){ if(!isDrawing)return;isDrawing=false;if(!annotMode||annotMode==='erase'||annotMode==='note')return;const x=Math.min(drawStart.x,e.offsetX||drawStart.x);const y=Math.min(drawStart.y,e.offsetY||drawStart.y);const w=Math.abs((e.offsetX||drawStart.x)-drawStart.x);const h=Math.abs((e.offsetY||drawStart.y)-drawStart.y);if(w<5||h<5)return;if(!pdfAnnotations[pdfCurrentPage])pdfAnnotations[pdfCurrentPage]=[];pdfAnnotations[pdfCurrentPage].push({type:'highlight',color:annotMode,x,y,w,h});redrawAnnotations(pdfCurrentPage);updateAnnotCount();debouncedSave(); }
+function eraseAt(mx,my){ if(!pdfAnnotations[pdfCurrentPage])return;pdfAnnotations[pdfCurrentPage]=pdfAnnotations[pdfCurrentPage].filter(a=>!(mx>=a.x&&mx<=a.x+a.w&&my>=a.y&&my<=a.y+a.h));redrawAnnotations(pdfCurrentPage);updateAnnotCount(); }
+function saveNoteAnnotation(){ const text=document.getElementById('noteText').value.trim();if(!text){document.getElementById('notePopup').style.display='none';return;}if(!pdfAnnotations[pdfCurrentPage])pdfAnnotations[pdfCurrentPage]=[];pdfAnnotations[pdfCurrentPage].push({type:'note',x:currentNotePos.x,y:currentNotePos.y,w:160,h:60,text,color:'blue'});document.getElementById('notePopup').style.display='none';redrawAnnotations(pdfCurrentPage);updateAnnotCount();toast('Bilješka dodana!','success'); }
+function cancelNote(){document.getElementById('notePopup').style.display='none';}
+function redrawAnnotations(pageNum){ const ac=document.getElementById('annotCanvas');if(!ac)return;const ctx=ac.getContext('2d');ctx.clearRect(0,0,ac.width,ac.height);const annots=pdfAnnotations[pageNum]||[];annots.forEach(a=>{if(a.type==='highlight'){ctx.fillStyle=modeToColor(a.color,0.38);ctx.fillRect(a.x,a.y,a.w,a.h);ctx.strokeStyle=modeToColor(a.color,0.8);ctx.lineWidth=1.5;ctx.strokeRect(a.x,a.y,a.w,a.h);}else if(a.type==='note'){ctx.fillStyle='rgba(68,136,255,0.15)';ctx.strokeStyle='rgba(68,136,255,0.8)';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(a.x,a.y,a.w,a.h,6);ctx.fill();ctx.stroke();ctx.fillStyle='rgba(68,136,255,1)';ctx.font='10px DM Sans';ctx.fillText('📝 '+a.text.slice(0,22)+(a.text.length>22?'…':''),a.x+6,a.y+20);}}); }
+function modeToColor(mode,alpha){ if(mode==='yellow')return`rgba(255,214,0,${alpha})`;if(mode==='green')return`rgba(0,230,118,${alpha})`;if(mode==='red')return`rgba(255,82,82,${alpha})`;if(mode==='blue')return`rgba(68,136,255,${alpha})`;return`rgba(255,255,255,${alpha})`; }
+function setAnnotMode(mode){ annotMode=(annotMode===mode)?null:mode;['yellow','green','red','note','erase'].forEach(m=>{const btn=document.getElementById('btn'+m.charAt(0).toUpperCase()+m.slice(1));if(btn)btn.classList.toggle('active',annotMode===m);});const ac=document.getElementById('annotCanvas');if(ac){ac.className='pdf-annotation-layer'+(annotMode?' '+(annotMode==='erase'?'erasing':annotMode==='note'?'noting':'drawing'):'');} }
+function clearAllAnnotations(){ if(!confirm('Obrisati sve napomene na ovoj stranici?'))return;pdfAnnotations[pdfCurrentPage]=[];redrawAnnotations(pdfCurrentPage);updateAnnotCount();toast('Napomene obrisane!','info'); }
+function updateAnnotCount(){ let total=0;Object.values(pdfAnnotations).forEach(arr=>total+=arr.length);document.getElementById('uk-annots').textContent=total; }
+function prevPdfPage(){if(pdfCurrentPage>1){pdfCurrentPage--;renderPdfPage(pdfCurrentPage);}}
+function nextPdfPage(){if(pdfCurrentPage<pdfTotalPages){pdfCurrentPage++;renderPdfPage(pdfCurrentPage);}}
+function clearPdf(){ pdfDoc=null;pdfCurrentPage=1;pdfTotalPages=0;pdfFileName='';pdfExtractedText='';pdfAnnotations={};audioBlob=null;pdfArrayBuffer=null;document.getElementById('pdfFileInfo').style.display='none';document.getElementById('ucenjeToolbar').style.display='none';document.getElementById('annotToolbar').style.display='none';document.getElementById('pdfPageNav').style.display='none';document.getElementById('pdfViewerWrap').style.display='none';document.getElementById('audioPlayerCard').style.display='none';document.getElementById('uk-pages').textContent='0';document.getElementById('uk-annots').textContent='0';document.getElementById('uk-words').textContent='0';document.getElementById('pdfFileInput').value='';toast('PDF uklonjen.','info'); }
+async function downloadAnnotatedPdf(){ if(!pdfArrayBuffer){toast('Učitajte PDF prvo!','warning');return;}showProgress('Kreiram PDF s napomenama...',20);try{if(typeof PDFLib==='undefined'){await loadScript('https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js');}const{PDFDocument,rgb,StandardFonts}=PDFLib;const pdfDoc2=await PDFDocument.load(pdfArrayBuffer);const pages=pdfDoc2.getPages();showProgress('Upisujem napomene...',50);for(const[pageNum,annots]of Object.entries(pdfAnnotations)){const pageIdx=parseInt(pageNum)-1;if(pageIdx<0||pageIdx>=pages.length)continue;const pg=pages[pageIdx];const{width,height}=pg.getSize();const canvas=document.getElementById('pdfCanvas');const scaleX=width/canvas.width;const scaleY=height/canvas.height;for(const a of annots){const rx=a.x*scaleX,ry=height-(a.y+a.h)*scaleY,rw=a.w*scaleX,rh=a.h*scaleY;if(a.type==='highlight'){const col=a.color==='yellow'?rgb(1,0.84,0):a.color==='green'?rgb(0,0.9,0.46):rgb(1,0.32,0.32);pg.drawRectangle({x:rx,y:ry,width:rw,height:rh,color:col,opacity:0.35,borderColor:col,borderWidth:0.5,borderOpacity:0.8});}else if(a.type==='note'){pg.drawRectangle({x:rx,y:ry,width:Math.min(rw,160*scaleX),height:Math.min(rh,60*scaleY),color:rgb(0.27,0.53,1),opacity:0.15,borderColor:rgb(0.27,0.53,1),borderWidth:1,borderOpacity:0.8});const helvetica=await pdfDoc2.embedFont(StandardFonts.Helvetica);pg.drawText(a.text.slice(0,40),{x:rx+4,y:ry+8,size:7,font:helvetica,color:rgb(0.1,0.3,0.9),opacity:0.9});}}}showProgress('Kompresujem...',80);const pdfBytes=await pdfDoc2.save();download(new Blob([pdfBytes],{type:'application/pdf'}),pdfFileName.replace('.pdf','')+'_napomene.pdf');showProgress('Gotovo!',100);setTimeout(hideProgress,400);toast('PDF s napomenama preuzet!','success');}catch(err){console.error(err);toast('Greška: '+err.message,'error');hideProgress();} }
+function downloadAsTxt(){ if(!pdfExtractedText){toast('Učitajte PDF prvo!','warning');return;}const blob=new Blob([pdfExtractedText],{type:'text/plain;charset=utf-8'});download(blob,pdfFileName.replace('.pdf','')+'.txt');toast('TXT fajl preuzet!','success'); }
+async function downloadAsDocx(){ if(!pdfExtractedText){toast('Učitajte PDF prvo!','warning');return;}showProgress('Kreiram Word dokument...',30);try{if(typeof docx==='undefined'){await loadScript('https://unpkg.com/docx@8.2.2/build/index.js');}const{Document,Packer,Paragraph,TextRun,HeadingLevel}=docx;const lines=pdfExtractedText.split('\n');const children=lines.map(line=>{if(line.startsWith('--- Stranica')){return new Paragraph({text:line,heading:HeadingLevel.HEADING_2});}return new Paragraph({children:[new TextRun({text:line,size:22})]});});const doc=new Document({sections:[{properties:{},children}]});showProgress('Serijaliziram...',70);const blob=await Packer.toBlob(doc);download(blob,pdfFileName.replace('.pdf','')+'.docx');showProgress('Gotovo!',100);setTimeout(hideProgress,400);toast('Word dokument preuzet!','success');}catch(err){console.error(err);toast('docx biblioteka nije dostupna. Preuzimam kao TXT.','warning');downloadAsTxt();hideProgress();} }
+async function generateAudio(){ if(!pdfExtractedText){toast('Učitajte PDF prvo!','warning');return;}showProgress('Kreiram audio...',10);try{const supported='speechSynthesis' in window;if(!supported){toast('Vaš preglednik ne podržava govornu sintezu!','error');hideProgress();return;}playSpeech();showProgress('Gotovo!',100);setTimeout(hideProgress,400);}catch(err){console.error(err);playSpeech();showProgress('Gotovo!',100);setTimeout(hideProgress,400);} }
+function playSpeech(){ if(!('speechSynthesis' in window)){toast('Vaš preglednik ne podržava govornu sintezu!','error');return;}window.speechSynthesis.cancel();const text=pdfExtractedText.slice(0,20000);const chunks=splitIntoChunks(text,200);let idx=0;const speak=()=>{if(idx>=chunks.length){document.getElementById('audioStatus').textContent='Čitanje završeno.';return;}const utter=new SpeechSynthesisUtterance(chunks[idx]);utter.lang='hr-HR';utter.rate=0.95;utter.onend=()=>{idx++;speak();};window.speechSynthesis.speak(utter);idx++;};document.getElementById('audioPlayerCard').style.display='block';document.getElementById('audioStatus').textContent='🔊 Čitam dokument...';document.getElementById('audioPlayer').src='';const ctrl=document.getElementById('audioStatus');ctrl.innerHTML='<button onclick="window.speechSynthesis.pause()" style="padding:4px 10px;border-radius:8px;background:var(--t);border:1px solid var(--br);color:var(--tx);cursor:pointer;font-size:11px;font-family:DM Sans,sans-serif;">⏸ Pauza</button> <button onclick="window.speechSynthesis.resume()" style="padding:4px 10px;border-radius:8px;background:var(--t);border:1px solid var(--br);color:var(--tx);cursor:pointer;font-size:11px;font-family:DM Sans,sans-serif;">▶ Nastavi</button> <button onclick="window.speechSynthesis.cancel()" style="padding:4px 10px;border-radius:8px;background:rgba(255,68,102,0.12);border:1px solid rgba(255,68,102,0.2);color:var(--red);cursor:pointer;font-size:11px;font-family:DM Sans,sans-serif;">⏹ Stop</button>';speak();toast('Audio reprodukcija pokrenuta!','success'); }
+function splitIntoChunks(text,wordCount){ const words=text.split(/\s+/);const chunks=[];for(let i=0;i<words.length;i+=wordCount){chunks.push(words.slice(i,i+wordCount).join(' '));}return chunks; }
+function downloadAudio(){ if(audioBlob){download(audioBlob,pdfFileName.replace('.pdf','')+'.webm');toast('Audio fajl preuzet!','success');}else{toast('Koristite "Generiši audio" da kreirate audio, zatim preuzmite.','info');} }
+function download(blob,filename){ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);document.body.removeChild(a);},1000); }
+function loadScript(src){ return new Promise((resolve,reject)=>{if(document.querySelector(`script[src="${src}"]`)){resolve();return;}const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);}); }
+function showProgress(label,pct){ document.getElementById('progressLabel').textContent=label||'Obrađujem...';document.getElementById('progressBarFill').style.width=(pct||0)+'%';document.getElementById('progressOverlay').classList.remove('hidden'); }
+function hideProgress(){ document.getElementById('progressOverlay').classList.add('hidden'); }
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function makeEl(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
+function getCatClass(cat){const u=cat.toUpperCase();return u==='AGRO'?'tag-agro':u==='ESP'?'tag-esp':'tag-other';}
+function fmtDate(d){if(!d)return'N/A';return new Date(d).toLocaleDateString('hr-HR',{day:'numeric',month:'short',year:'numeric'});}
+function escapeHtml(str){if(!str)return'';return str.replace(/[&<>]/g,m=>m==='&'?'&amp;':m==='<'?'&lt;':'&gt;');}
+function toast(msg,type='info'){const icons={success:'✅',warning:'⚠️',error:'❌',info:'ℹ️'};const el=makeEl('div','toast');el.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),3500);}
+
+// ─────────────────────────────────────────────
+// TRACKER MODULE — više trackera s padajućim selektorom
+// ─────────────────────────────────────────────
+// Storage model:
+//   tr_trackers_list           → [{id, name, createdAt}, ...]
+//   tr_active_tracker_id       → ID trenutno odabranog trackera
+//   tr_habits_<trackerId>      → lista stavki (string[]) za pojedini tracker
+//   tr_data_<trackerId>_<y>_<m> → {"<habitIdx>_<day>": true, ...}
+const TR_LIST_KEY     = 'tr_trackers_list';
+const TR_ACTIVE_KEY   = 'tr_active_tracker_id';
+const TR_HABITS_PREFIX= 'tr_habits_';
+const TR_DATA_PREFIX  = 'tr_data_';
+
+const TR_MONTHS=['Januar','Februar','Mart','April','Maj','Juni','Juli','August','Septembar','Oktobar','Novembar','Decembar'];
+const TR_DAY_NAMES=['Ned','Pon','Uto','Sri','Čet','Pet','Sub'];
+
+// Usklađena paleta — naizmjenično purple/blue (kao habit sekcija)
+const TR_DONUT_HEX = ['#8866ff','#4488ff'];
+const TR_BAR_HEX   = ['rgba(136,102,255,0.75)','rgba(68,136,255,0.75)'];
+
+let trYear=TODAY.getFullYear(), trMonth=TODAY.getMonth();
+let trBarChart=null, trDonutCharts=[];
+
+// ─── Storage helperi ───
+function trLoadList(){ try{ const v=localStorage.getItem(TR_LIST_KEY); return v?JSON.parse(v):[]; } catch(e){ return []; } }
+function trSaveList(list){ try{ localStorage.setItem(TR_LIST_KEY, JSON.stringify(list)); } catch(e){} }
+function trGetActiveId(){ return localStorage.getItem(TR_ACTIVE_KEY) || null; }
+function trSetActiveId(id){ if(id===null||id===undefined||id==='') localStorage.removeItem(TR_ACTIVE_KEY); else localStorage.setItem(TR_ACTIVE_KEY, String(id)); }
+function trGetActiveTracker(){ const id=trGetActiveId(); if(!id) return null; const list=trLoadList(); return list.find(t=>String(t.id)===String(id)) || null; }
+
+function trLoadHabits(trackerId){ if(!trackerId) return []; try{ const v=localStorage.getItem(TR_HABITS_PREFIX+trackerId); return v?JSON.parse(v):[]; } catch(e){ return []; } }
+function trSaveHabits(trackerId, h){ if(!trackerId) return; try{ localStorage.setItem(TR_HABITS_PREFIX+trackerId, JSON.stringify(h)); } catch(e){} }
+
+function trDataKey(trackerId,y,m){ return TR_DATA_PREFIX+trackerId+'_'+y+'_'+m; }
+function trLoadData(trackerId,y,m){ if(!trackerId) return {}; try{ const v=localStorage.getItem(trDataKey(trackerId,y,m)); return v?JSON.parse(v):{}; } catch(e){ return {}; } }
+function trSaveData(trackerId,y,m,d){ if(!trackerId) return; try{ localStorage.setItem(trDataKey(trackerId,y,m), JSON.stringify(d)); } catch(e){} }
+
+function trDaysInMonth(y,m){return new Date(y,m+1,0).getDate();}
+function trFirstDow(y,m){return new Date(y,m,1).getDay();}
+function trIsWeekend(dow){return dow===0||dow===6;}
+
+function trGetWeekGroups(y,m){
+    const days=trDaysInMonth(y,m),first=trFirstDow(y,m);
+    let weeks=[],w=[];
+    for(let d=1;d<=days;d++){
+        const dow=(first+d-1)%7;
+        if(w.length>0&&dow===0){weeks.push(w);w=[];}
+        w.push({day:d,dow});
+    }
+    if(w.length)weeks.push(w);
+    return weeks;
+}
+
+function trackerChangeMonth(delta){
+    trMonth+=delta;
+    if(trMonth<0){trMonth=11;trYear--;}
+    if(trMonth>11){trMonth=0;trYear++;}
+    renderTracker();
+}
+
+// ─── Akcije nad pojedinom stavkom (habit) u aktivnom trackeru ───
+function trToggleHabit(hi,day){
+    const t=trGetActiveTracker(); if(!t) return;
+    const data=trLoadData(t.id, trYear, trMonth);
+    const key=hi+'_'+day;
+    data[key]=!data[key];
+    trSaveData(t.id, trYear, trMonth, data);
+    renderTracker();
+}
+
+function trAddHabit(){
+    const t=trGetActiveTracker();
+    if(!t){ toast('Prvo kreirajte ili odaberite tracker.','warning'); return; }
+    const inp=document.getElementById('trNewHabitInp');
+    if(!inp||!inp.value.trim()) return;
+    const h=trLoadHabits(t.id);
+    h.push(inp.value.trim());
+    trSaveHabits(t.id, h);
+    inp.value='';
+    renderTracker();
+    toast('Stavka dodana!','success');
+}
+
+function trDeleteHabit(idx){
+    const t=trGetActiveTracker(); if(!t) return;
+    const h=trLoadHabits(t.id);
+    if(idx<0||idx>=h.length) return;
+    if(!confirm(`Obriši stavku "${h[idx]}"?`)) return;
+    // Reindeksiraj sve podatke za ovaj tracker (svi mjeseci)
+    const prefix=TR_DATA_PREFIX+t.id+'_';
+    const dataKeys=[];
+    for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(k && k.startsWith(prefix)) dataKeys.push(k);
+    }
+    dataKeys.forEach(k=>{
+        try{
+            const data=JSON.parse(localStorage.getItem(k)||'{}');
+            const newData={};
+            for(let key in data){
+                const parts=key.split('_');
+                const hi2=parseInt(parts[0]);
+                const dv=parts[1];
+                if(hi2===idx) continue;
+                const ni=hi2>idx?hi2-1:hi2;
+                newData[ni+'_'+dv]=data[key];
+            }
+            localStorage.setItem(k, JSON.stringify(newData));
+        }catch(e){}
+    });
+    h.splice(idx,1);
+    trSaveHabits(t.id, h);
+    renderTracker();
+    toast('Stavka obrisana.','info');
+}
+
+// ─── Selector akcije ───
+function trRefreshSelector(){
+    const sel=document.getElementById('trackerSelector');
+    if(!sel) return;
+    const list=trLoadList();
+    const activeId=trGetActiveId();
+    if(!list.length){
+        sel.innerHTML='<option value="">— Nema trackera —</option>';
+        sel.disabled=true;
+        return;
+    }
+    sel.disabled=false;
+    sel.innerHTML=list.map(t=>{
+        const selected=String(t.id)===String(activeId)?' selected':'';
+        return `<option value="${t.id}"${selected}>${escapeHtml(t.name)}</option>`;
+    }).join('');
+}
+
+function trSelectTracker(){
+    const sel=document.getElementById('trackerSelector');
+    if(!sel||!sel.value) return;
+    trSetActiveId(sel.value);
+    renderTracker();
+}
+
+function trDeleteCurrentTracker(){
+    const t=trGetActiveTracker();
+    if(!t){ toast('Nema aktivnog trackera.','warning'); return; }
+    if(!confirm(`Obrisati cijeli tracker "${t.name}" (sve stavke + sve unose)? Ova akcija se ne može poništiti!`)) return;
+    // Ukloni iz liste
+    let list=trLoadList();
+    list=list.filter(x=>String(x.id)!==String(t.id));
+    trSaveList(list);
+    // Ukloni stavke i sve mjesečne podatke za ovaj tracker
+    localStorage.removeItem(TR_HABITS_PREFIX+t.id);
+    const prefix=TR_DATA_PREFIX+t.id+'_';
+    const toRemove=[];
+    for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(k && k.startsWith(prefix)) toRemove.push(k);
+    }
+    toRemove.forEach(k=>localStorage.removeItem(k));
+    // Prebaci na sljedeći tracker ili null
+    if(list.length>0) trSetActiveId(list[0].id);
+    else trSetActiveId(null);
+    renderTracker();
+    toast(`Tracker "${t.name}" obrisan.`,'info');
+}
+
+// Kreiranje novog trackera (iz input polja)
+function trSaveName(){
+    const inp=document.getElementById('trackerNameInp');
+    if(!inp) return;
+    const name=inp.value.trim();
+    if(!name){ toast('Unesite naziv trackera!','warning'); return; }
+
+    const list=trLoadList();
+    const existing=list.find(t=>t.name.toLowerCase()===name.toLowerCase());
+    if(existing){
+        trSetActiveId(existing.id);
+        inp.value='';
+        renderTracker();
+        toast(`Tracker "${name}" već postoji — prebačeno na njega.`,'info');
+        return;
+    }
+    const newId=Date.now();
+    list.push({ id:newId, name, createdAt:new Date().toISOString() });
+    trSaveList(list);
+    trSetActiveId(newId);
+
+    // Zadržava se postojeća funkcija: kreiraj Gantt dijagram za novi tracker
+    const ganttExists = ganttDiagrams.find(g => g.trackerLinked && g.name === name);
+    if(!ganttExists){
+        const now=TODAY.toISOString().split('T')[0];
+        const end=new Date(TODAY); end.setMonth(end.getMonth()+1);
+        const endStr=end.toISOString().split('T')[0];
+        ganttDiagrams.push({
+            id:Date.now()+1,
+            name:name,
+            projectStart:now,
+            projectEnd:endStr,
+            tasks:[{ id:Date.now()+2, name:'Tracker: '+name, start:now+'T09:00', end:endStr+'T17:00', type:'task' }],
+            createdAt:new Date().toISOString(),
+            trackerLinked:true
+        });
+        debouncedSave();
+        renderGantt();
+        updateKPIs();
+    }
+
+    inp.value='';
+    renderTracker();
+    toast(`Tracker "${name}" kreiran!`,'success');
+}
+
+// Clear All — briše SVE unose u trenutno aktivnom trackeru
+function trClearAll(){
+    const t=trGetActiveTracker();
+    if(!t){ toast('Nema aktivnog trackera za brisanje.','warning'); return; }
+    if(!confirm(`Obrisati sve stavke i unose u trackeru "${t.name}"? Sam tracker ostaje u listi. Ova akcija se ne može poništiti!`)) return;
+    // Obriši stavke
+    localStorage.removeItem(TR_HABITS_PREFIX+t.id);
+    // Obriši sve mjesečne podatke za ovaj tracker
+    const prefix=TR_DATA_PREFIX+t.id+'_';
+    const toRemove=[];
+    for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(k && k.startsWith(prefix)) toRemove.push(k);
+    }
+    toRemove.forEach(k=>localStorage.removeItem(k));
+    // Resetiraj input ako je vidljiv
+    const newInp=document.getElementById('trNewHabitInp');
+    if(newInp) newInp.value='';
+    renderTracker();
+    toast(`Svi unosi u "${t.name}" obrisani.`,'info');
+}
+
+// ─── Renderiranje ───
+function renderTracker(){
+    if(currentPage!=='tracker') return;
+
+    // Selector uvijek prvo
+    trRefreshSelector();
+
+    const t=trGetActiveTracker();
+    const wrap=document.getElementById('trackerTableWrap');
+    const badge=document.getElementById('trackerNameBadge');
+
+    // Uništi stare grafove
+    if(trBarChart){ try{ trBarChart.destroy(); }catch(e){} trBarChart=null; }
+    trDonutCharts.forEach(c=>{ try{ c.destroy(); }catch(e){} });
+    trDonutCharts=[];
+
+    // Ako nema aktivnog trackera — prikaži empty state
+    if(!t){
+        if(badge) badge.style.display='none';
+        if(wrap) wrap.innerHTML=`
+            <div class="tracker-empty-state">
+                <i class="fas fa-table"></i>
+                <p><strong>Nema aktivnog trackera.</strong><br>
+                Unesite naziv u polje iznad i kliknite <strong>Kreiraj</strong><br>
+                da napravite svoj prvi tracker.</p>
+            </div>`;
+        document.getElementById('trackerMonthTitle').textContent='—';
+        document.getElementById('trackerTodayBadge').textContent='';
+        document.getElementById('tr-kpi-done').textContent='0';
+        document.getElementById('tr-kpi-rate').textContent='0%';
+        document.getElementById('tr-kpi-habits').textContent='0';
+        document.getElementById('trackerWeeklyCards').innerHTML='';
+        // Bar chart ostaje prazan
+        const bctx=document.getElementById('trackerBarChart');
+        if(bctx){ const c=bctx.getContext('2d'); c.clearRect(0,0,bctx.width,bctx.height); }
+        return;
+    }
+
+    // Pokaži badge s nazivom aktivnog trackera
+    if(badge){
+        badge.style.display='flex';
+        badge.innerHTML=`<i class="fas fa-table"></i> Aktivan tracker: <strong>${escapeHtml(t.name)}</strong>`;
+    }
+
+    const habits=trLoadHabits(t.id);
+    const data=trLoadData(t.id, trYear, trMonth);
+    const wgs=trGetWeekGroups(trYear, trMonth);
+    const days=trDaysInMonth(trYear, trMonth);
+    const now=new Date();
+    const isCurr=now.getFullYear()===trYear && now.getMonth()===trMonth;
+    const todayD=now.getDate();
+
+    // Header oznake
+    document.getElementById('trackerMonthTitle').textContent=TR_MONTHS[trMonth]+' '+trYear;
+    document.getElementById('trackerTodayBadge').textContent=isCurr?('📅 Danas: '+todayD+'. '+TR_MONTHS[trMonth]):'';
+
+    // KPI
+    let todayDone=0;
+    if(isCurr){ habits.forEach((_,hi)=>{ if(data[hi+'_'+todayD]) todayDone++; }); }
+    let mTotal=habits.length*days, mDone=0;
+    for(let d=1; d<=days; d++){ habits.forEach((_,hi)=>{ if(data[hi+'_'+d]) mDone++; }); }
+    const mRate=mTotal>0?Math.round(mDone/mTotal*100):0;
+    document.getElementById('tr-kpi-done').textContent=todayDone;
+    document.getElementById('tr-kpi-rate').textContent=mRate+'%';
+    document.getElementById('tr-kpi-habits').textContent=habits.length;
+
+    // Pomoćna funkcija za naizmjeničnu boju tjedna (odd/even)
+    const weekCls=(wi,base)=>{ return (wi%2===0) ? `tr-${base}-odd` : `tr-${base}-even`; };
+
+    // Build table
+    let html='<table class="tracker-main-table"><thead>';
+    // Week headers
+    html+='<tr><th class="tr-habit-col hdr-col">📋 STAVKE</th>';
+    wgs.forEach((wg,wi)=>{
+        html+=`<th colspan="${wg.length}" class="${weekCls(wi,'week-hdr')}" style="font-size:9px;font-weight:700;color:var(--tx);">TJEDAN ${wi+1}</th>`;
+    });
+    html+='</tr>';
+    // Day numbers
+    html+='<tr><th class="tr-habit-col" style="font-size:9px;color:var(--muted);">📆 Kal. dan</th>';
+    wgs.forEach((wg,wi)=>{
+        wg.forEach(({day,dow})=>{
+            const bg=trIsWeekend(dow)?weekCls(wi,'wknd'):weekCls(wi,'day');
+            const isT=isCurr&&day===todayD;
+            html+=`<th class="${bg}${isT?' tr-today-col':''}" style="font-size:9px;font-weight:700;">${day}</th>`;
+        });
+    });
+    html+='</tr>';
+    // Weekday names
+    html+='<tr><th class="tr-habit-col" style="font-size:9px;color:var(--muted);">📅 Dan</th>';
+    wgs.forEach((wg,wi)=>{
+        wg.forEach(({day,dow})=>{
+            const bg=trIsWeekend(dow)?weekCls(wi,'wknd'):weekCls(wi,'day');
+            html+=`<th class="${bg}" style="font-size:8px;color:var(--muted);">${TR_DAY_NAMES[dow]}</th>`;
+        });
+    });
+    html+='</tr></thead><tbody>';
+
+    // Red za dodavanje stavke
+    const totalCols=wgs.reduce((s,wg)=>s+wg.length,0);
+    html+=`<tr class="tr-add-habit-row">
+        <td class="tr-habit-col" style="padding:5px 6px;">
+            <div style="display:flex;align-items:center;gap:5px;">
+                <input type="text" id="trNewHabitInp" class="tr-new-habit-input" placeholder="Nova stavka..." onkeydown="if(event.key==='Enter')trAddHabit()">
+                <button class="tr-add-btn" onclick="trAddHabit()"><i class="fas fa-plus"></i></button>
+            </div>
+        </td>
+        <td colspan="${totalCols}" style="font-size:9px;color:var(--muted);text-align:left;padding:5px 8px;">✨ Unesite naziv stavke i pritisnite Enter ili kliknite +</td>
+    </tr>`;
+
+    // Redovi za svaku stavku
+    habits.forEach((habit,hi)=>{
+        html+=`<tr><td class="tr-habit-col" style="font-size:9px;font-weight:500;">
+            <div style="display:flex;align-items:center;gap:4px;width:100%;">
+                <span style="color:var(--muted);font-size:9px;min-width:14px;">${hi+1}.</span>
+                <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">${escapeHtml(habit)}</span>
+                <button class="tr-del-btn" onclick="trDeleteHabit(${hi})" title="Obriši"><i class="fas fa-times"></i></button>
+            </div>
+        </td>`;
+        wgs.forEach((wg,wi)=>{
+            wg.forEach(({day,dow})=>{
+                const bg=trIsWeekend(dow)?weekCls(wi,'wknd'):weekCls(wi,'day');
+                const isT=isCurr&&day===todayD;
+                const done=data[hi+'_'+day];
+                html+=`<td class="tr-dot-cell ${bg}${isT?' tr-today-col':''}${done?' done':''}" onclick="trToggleHabit(${hi},${day})" title="${escapeHtml(habit)} — dan ${day}">${done?'●':'○'}</td>`;
+            });
+        });
+        html+='</tr>';
+    });
+
+    // Status row (tjedni uspjeh) — koristi unificirani 'tr-status' (zeleni accent)
+    if(habits.length>0){
+        html+='<tr class="tr-status-td"><td class="tr-habit-col" style="background:var(--t);font-size:9px;font-weight:700;color:var(--g);">📊 TJEDNI USPJEH</td>';
+        wgs.forEach((wg,wi)=>{
+            let possible=wg.length*habits.length, done=0;
+            wg.forEach(({day})=>{ habits.forEach((_,hi)=>{ if(data[hi+'_'+day]) done++; }); });
+            const pct=possible>0?Math.round(done/possible*100):0;
+            html+=`<td colspan="${wg.length}" class="tr-status tr-status-td" style="text-align:center;">✅ ${done}/${possible} (${pct}%)</td>`;
+        });
+        html+='</tr>';
+    }
+    html+='</tbody></table>';
+
+    if(wrap) wrap.innerHTML=html;
+
+    // Bar chart — dnevni postotak
+    const barLabels=[],barData=[],barColors=[];
+    for(let d=1;d<=days;d++){
+        barLabels.push(d);
+        let done=0;
+        habits.forEach((_,hi)=>{ if(data[hi+'_'+d]) done++; });
+        const pct=habits.length?Math.round(done/habits.length*100):0;
+        barData.push(pct);
+        // Boja prema tjednu (odd/even)
+        let wi2=0, acc=0;
+        for(let w=0; w<wgs.length; w++){ if(d<=acc+wgs[w].length){ wi2=w; break; } acc+=wgs[w].length; }
+        barColors.push(TR_BAR_HEX[wi2%2]);
+    }
+    const bctx=document.getElementById('trackerBarChart');
+    if(bctx){
+        trBarChart=new Chart(bctx,{
+            type:'bar',
+            data:{ labels:barLabels, datasets:[{ data:barData, backgroundColor:barColors, borderRadius:3, borderSkipped:false }] },
+            options:{
+                responsive:true, maintainAspectRatio:false,
+                plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:ctx=>ctx.raw+'% završeno' } } },
+                scales:{
+                    x:{ ticks:{ font:{size:7}, color:'rgba(255,255,255,0.4)', autoSkip:false, maxRotation:0 }, grid:{display:false}, border:{display:false} },
+                    y:{ display:false, min:0, max:100 }
+                }
+            }
+        });
+    }
+
+    // Tjedni donut grafovi
+    const wCards=document.getElementById('trackerWeeklyCards');
+    if(wCards){
+        wCards.innerHTML='';
+        wgs.forEach((wg,wi)=>{
+            const ci=wi%2;
+            let possible=wg.length*habits.length, done=0;
+            wg.forEach(({day})=>{ habits.forEach((_,hi)=>{ if(data[hi+'_'+day]) done++; }); });
+            const pct=possible>0?Math.round(done/possible*10000)/100:0;
+            const card=document.createElement('div'); card.className='tracker-week-card';
+            const cid='trDonut'+wi;
+            card.innerHTML=`<canvas id="${cid}" width="72" height="72" role="img" aria-label="Tjedan ${wi+1}: ${pct}%">${pct}%</canvas><div class="tracker-donut-pct">${pct.toFixed(1)}%</div>`;
+            wCards.appendChild(card);
+            requestAnimationFrame(()=>{
+                const dc=document.getElementById(cid);
+                if(dc){
+                    const ch=new Chart(dc,{
+                        type:'doughnut',
+                        data:{ datasets:[{ data:[pct,100-pct], backgroundColor:[TR_DONUT_HEX[ci],'rgba(255,255,255,0.05)'], borderWidth:0 }] },
+                        options:{ responsive:false, maintainAspectRatio:false, cutout:'68%', plugins:{ legend:{display:false}, tooltip:{enabled:false} } },
+                        plugins:[{ id:'ct', afterDraw(c){
+                            const{ctx,chartArea:{left,top,width,height}}=c;
+                            ctx.save();
+                            ctx.font='bold 9px DM Sans';
+                            ctx.fillStyle=TR_DONUT_HEX[ci];
+                            ctx.textAlign='center'; ctx.textBaseline='middle';
+                            ctx.fillText(pct.toFixed(0)+'%', left+width/2, top+height/2);
+                            ctx.restore();
+                        }}]
+                    });
+                    trDonutCharts.push(ch);
+                }
+            });
+        });
+    }
+}
+
+// Inicijalizacija UI-a kad se otvori tracker stranica
+function trInitNameUI(){
+    trRefreshSelector();
+    // Nema više perzistencije imena — selector pokazuje aktivan tracker
+}
+
+</script>
+</body>
+</html>
